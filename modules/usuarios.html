@@ -1,0 +1,320 @@
+<!-- ======================================================= -->
+<!-- PANEL MAESTRO DE USUARIOS & CONTROL DE ACCESOS (RBAC) -->
+<!-- ======================================================= -->
+ <link rel="stylesheet" href="css/usuarios.css">
+<div class="iam-container">
+
+  <!-- BANNER HEADER HERO -->
+  <header class="iam-hero-header">
+    <div class="iam-hero-content">
+      <div class="iam-chip">
+        <span class="iam-chip-dot"></span> AUDIT SYSTEM // SECURITY HUB
+      </div>
+      <h2>Centro de Usuarios & Privilegios</h2>
+      <p>Administración centralizada de identidades, jerarquías de rol y matriz granular de accesos.</p>
+    </div>
+    <div class="iam-hero-stat">
+      <div class="iam-stat-badge">
+        <span class="stat-num" id="totalUsuariosBadge">0</span>
+        <span class="stat-txt">IDENTIDADES</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- CARD 1: FORMULARIO Y MATRIZ -->
+  <section class="iam-card">
+    <div class="iam-card-header">
+      <div class="iam-card-title">
+        <div class="iam-icon-box">⚡</div>
+        <div>
+          <h3>Registrar Nueva Identidad</h3>
+          <span class="iam-subtitle">Configure credenciales de autenticación y permisos</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRID INPUTS -->
+    <div class="iam-form-grid">
+      <div class="iam-field">
+        <label for="usuarioInput">IDENTIFICADOR / USUARIO</label>
+        <div class="iam-input-wrap">
+          <span class="iam-input-icon">👤</span>
+          <input type="text" id="usuarioInput" placeholder="ej. l.grisales@ei.com.co" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="iam-field">
+        <label for="passwordInput">CLAVE DE ACCESO</label>
+        <div class="iam-input-wrap">
+          <span class="iam-input-icon">🔑</span>
+          <input type="password" id="passwordInput" placeholder="••••••••••••" autocomplete="new-password">
+        </div>
+      </div>
+
+      <div class="iam-field">
+        <label for="rolUsuario">ROL ASIGNADO</label>
+        <div class="iam-input-wrap">
+          <span class="iam-input-icon">🛡️</span>
+          <select id="rolUsuario">
+            <option value="admin">Administrador (Root)</option>
+            <option value="lider">Líder Operativo</option>
+            <option value="jefe">Jefe de Área</option>
+            <option value="auditor" selected>Auditor de Calidad</option>
+            <option value="compras">Gestión de Compras</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- MATRIZ DE PERMISOS -->
+    <div class="iam-matrix-section">
+      <div class="iam-matrix-header">
+        <div>
+          <h4>Matriz de Permisos Granulares</h4>
+          <span>Active las acciones permitidas por módulo operativo</span>
+        </div>
+        <div class="iam-quick-actions">
+          <button type="button" class="iam-link-btn" onclick="toggleAllPermisos(true)">✓ Marcar Todos</button>
+          <span class="iam-link-sep">|</span>
+          <button type="button" class="iam-link-btn" onclick="toggleAllPermisos(false)">✕ Desmarcar</button>
+        </div>
+      </div>
+
+      <!-- GRID DE MÓDULOS -->
+      <div class="iam-matrix-grid">
+
+        <!-- INVENTARIO -->
+        <div class="iam-mod-box">
+          <div class="iam-mod-head">
+            <span class="iam-mod-icon">📦</span>
+            <h5>Inventario</h5>
+          </div>
+          <div class="iam-mod-switches">
+            <div class="iam-switch-row">
+              <span>Lectura (Ver)</span>
+              <label class="iam-toggle">
+                <input type="checkbox" id="inventarioVer">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+            <div class="iam-switch-row">
+              <span>Creación (Crear)</span>
+              <label class="iam-toggle">
+                <input type="checkbox" id="inventarioCrear">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+            <div class="iam-switch-row">
+              <span>Edición (Editar)</span>
+              <label class="iam-toggle">
+                <input type="checkbox" id="inventarioEditar">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+            <div class="iam-switch-row is-danger">
+              <span>Eliminar</span>
+              <label class="iam-toggle danger">
+                <input type="checkbox" id="inventarioEliminar">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- RECEPCIÓN -->
+        <div class="iam-mod-box">
+          <div class="iam-mod-head">
+            <span class="iam-mod-icon">📥</span>
+            <h5>Recepción</h5>
+          </div>
+          <div class="iam-mod-switches">
+            <div class="iam-switch-row">
+              <span>Lectura (Ver)</span>
+              <label class="iam-toggle">
+                <input type="checkbox" id="recepcionVer">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+            <div class="iam-switch-row">
+              <span>Creación (Crear)</span>
+              <label class="iam-toggle">
+                <input type="checkbox" id="recepcionCrear">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+            <div class="iam-switch-row">
+              <span>Edición (Editar)</span>
+              <label class="iam-toggle">
+                <input type="checkbox" id="recepcionEditar">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+            <div class="iam-switch-row is-danger">
+              <span>Eliminar</span>
+              <label class="iam-toggle danger">
+                <input type="checkbox" id="recepcionEliminar">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- AUDITORÍAS -->
+        <div class="iam-mod-box">
+          <div class="iam-mod-head">
+            <span class="iam-mod-icon">📋</span>
+            <h5>Auditorías</h5>
+          </div>
+          <div class="iam-mod-switches">
+            <div class="iam-switch-row">
+              <span>Lectura (Ver)</span>
+              <label class="iam-toggle">
+                <input type="checkbox" id="auditoriasVer">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+            <div class="iam-switch-row">
+              <span>Creación (Crear)</span>
+              <label class="iam-toggle">
+                <input type="checkbox" id="auditoriasCrear">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+            <div class="iam-switch-row">
+              <span>Edición (Editar)</span>
+              <label class="iam-toggle">
+                <input type="checkbox" id="auditoriasEditar">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+            <div class="iam-switch-row is-danger">
+              <span>Eliminar</span>
+              <label class="iam-toggle danger">
+                <input type="checkbox" id="auditoriasEliminar">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- USUARIOS -->
+        <div class="iam-mod-box">
+          <div class="iam-mod-head">
+            <span class="iam-mod-icon">👥</span>
+            <h5>Usuarios</h5>
+          </div>
+          <div class="iam-mod-switches">
+            <div class="iam-switch-row">
+              <span>Lectura (Ver)</span>
+              <label class="iam-toggle">
+                <input type="checkbox" id="usuariosVer">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+            <div class="iam-switch-row">
+              <span>Creación (Crear)</span>
+              <label class="iam-toggle">
+                <input type="checkbox" id="usuariosCrear">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+            <div class="iam-switch-row">
+              <span>Edición (Editar)</span>
+              <label class="iam-toggle">
+                <input type="checkbox" id="usuariosEditar">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+            <div class="iam-switch-row is-danger">
+              <span>Eliminar</span>
+              <label class="iam-toggle danger">
+                <input type="checkbox" id="usuariosEliminar">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- CONFIABILIDAD -->
+        <div class="iam-mod-box">
+          <div class="iam-mod-head">
+            <span class="iam-mod-icon">📊</span>
+            <h5>Confiabilidad</h5>
+          </div>
+          <div class="iam-mod-switches">
+            <div class="iam-switch-row">
+              <span>Lectura (Ver)</span>
+              <label class="iam-toggle">
+                <input type="checkbox" id="confiabilidadVer">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+            <div class="iam-switch-row">
+              <span>Creación (Crear)</span>
+              <label class="iam-toggle">
+                <input type="checkbox" id="confiabilidadCrear">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+            <div class="iam-switch-row">
+              <span>Edición (Editar)</span>
+              <label class="iam-toggle">
+                <input type="checkbox" id="confiabilidadEditar">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+            <div class="iam-switch-row is-danger">
+              <span>Eliminar</span>
+              <label class="iam-toggle danger">
+                <input type="checkbox" id="confiabilidadEliminar">
+                <span class="iam-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- BOTONES DE ACCIÓN -->
+    <div class="iam-btn-actions">
+      <button id="guardarUsuario" class="iam-btn-primary">
+        <span>⚡ Guardar Usuario y Permisos</span>
+      </button>
+      <button type="button" class="iam-btn-ghost" onclick="limpiarFormulario()">
+        Limpiar Formulario
+      </button>
+    </div>
+  </section>
+
+  <!-- CARD 2: TABLA DE USUARIOS REGISTRADOS -->
+  <section class="iam-card">
+    <div class="iam-table-toolbar">
+      <div>
+        <h3>Directorio de Cuentas Activas</h3>
+        <span class="iam-subtitle">Registros protegidos con Row Level Security (RLS)</span>
+      </div>
+      <div class="iam-search-box">
+        <span class="iam-search-icon">🔍</span>
+        <input type="text" id="buscarUsuario" placeholder="Buscar por usuario, correo o rol..." autocomplete="off">
+      </div>
+    </div>
+
+    <div class="iam-table-wrap">
+      <table class="iam-table">
+        <thead>
+          <tr>
+            <th style="width: 35%;">USUARIO / IDENTIDAD</th>
+            <th style="width: 25%;">ROL ASIGNADO</th>
+            <th style="width: 20%;">ESTADO</th>
+            <th style="width: 20%; text-align: right;">ACCIONES</th>
+          </tr>
+        </thead>
+        <tbody id="usuariosBody">
+          <!-- Renderizado con JS -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>

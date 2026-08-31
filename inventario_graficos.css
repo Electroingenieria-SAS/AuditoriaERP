@@ -1,0 +1,141 @@
+/* =========================
+PAGINA DASHBOARD INVENTARIO
+========================= */
+
+body{
+  background:#f1f5f9; 
+  margin:0;
+  font-family:'Segoe UI',Arial,sans-serif;
+}
+
+.graficos-page{
+  max-width:1300px;
+  margin:0 auto;
+  padding:30px 20px 60px;
+}
+
+.graficos-header h2{
+  margin-bottom:4px;
+}
+
+/* =========================
+KPIS COMPACTOS
+========================= */
+
+.kpi-grid-graficos{
+  grid-template-columns:repeat(4,1fr);
+}
+
+.kpi-grid-graficos .kpi-card{
+  padding:18px;
+  text-align:center;
+}
+
+.kpi-grid-graficos .kpi-card span{
+  font-size:12px;
+  margin-bottom:6px;
+}
+
+.kpi-grid-graficos .kpi-card h3{
+  font-size:24px;
+}
+
+.kpi-card-highlight{
+  background:linear-gradient(135deg,#0f766e,#14b8a6);
+  border:none;
+}
+
+
+.kpi-ok{
+  color:#10b981;
+}
+
+.kpi-faltante{
+  color:#ef4444;
+}
+
+.kpi-sobrante{
+  color:#ca8a04;
+}
+
+/* =========================
+GRAFICAS COMPACTAS
+========================= */
+
+.dashboard-charts-grid-compact{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:20px;
+}
+
+.dashboard-chart-card{
+  padding:20px;
+}
+
+.dashboard-chart-card h3{
+  font-size:15px;
+  margin:0;
+  color:#0f172a;
+}
+
+.chart-box{
+  position:relative;
+  width:100%;
+  margin:0 auto;
+}
+
+.chart-box-donut{
+  height:190px;
+  max-width:260px;
+}
+
+.chart-box-bar{
+  height:190px;
+}
+
+.chart-box canvas{
+  max-height:100% !important;
+}
+
+/* =========================
+BITACORA COMPACTA
+========================= */
+
+.table-container-compact{
+  max-height:360px;
+  overflow-y:auto;
+}
+
+.table-container-compact thead th{
+  position:sticky;
+  top:0;
+  z-index:1;
+}
+
+/* =========================
+RESPONSIVE
+========================= */
+
+@media(max-width:900px){
+
+  .kpi-grid-graficos{
+    grid-template-columns:repeat(2,1fr);
+  }
+
+}
+
+@media(max-width:768px){
+
+  .graficos-header{
+    flex-direction:column;
+    align-items:flex-start;
+    gap:15px;
+  }
+
+  .chart-box-donut,
+  .chart-box-bar{
+    height:220px;
+    max-width:100%;
+  }
+
+}

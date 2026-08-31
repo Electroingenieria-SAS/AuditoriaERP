@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audit System</title>
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/confiabilidad.css">
+  <link rel="stylesheet" href="css/auditorias.css">
+  <link rel="stylesheet" href="css/adjuntos.css">
+  <link rel="stylesheet" href="css/notificaciones-premium.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body>
+
+  <div class="dashboard">
+    <!-- Barra de navegación superior -->
+    <header class="top-navbar">
+      <div class="navbar-logo">
+        <img src="img/logo-electro.png.png" alt="Logo">
+        <div>
+          <h2>AUDITORIA</h2>
+          <p>Auditoría Logística</p>
+        </div>
+      </div>
+
+      <nav class="navbar-menu">
+        <button id="dashboardMenu" class="nav-btn active">🏠 Dashboard</button>
+        <button id="inventarioMenu" class="nav-btn">📦 Inventario</button>
+        <button id="auditoriasMenu" class="nav-btn">📋 Auditorías</button>
+        <button id="recepcionMenu" class="nav-btn">📥 Recepción</button>
+        <button id="confiabilidadMenu" class="nav-btn">📊 Confiabilidad</button>
+        <button id="usuariosMenu" class="nav-btn">👥 Usuarios</button>
+      </nav>
+
+      <div class="navbar-actions">
+        <div class="hero-notification">
+          <button class="notification-btn" id="campanaBtn">
+            🔔
+            <span class="notification-count" id="contadorNotificaciones">0</span>
+          </button>
+          <div id="panelNotificaciones" class="notifications-dropdown">
+            <div id="listaNotificaciones" class="notifications-list"></div>
+          </div>
+        </div>
+
+        <div class="navbar-user">
+          <div class="user-avatar"></div>
+          <div class="user-info">
+            <span id="usuarioNombre">Admin</span>
+          </div>
+        </div>
+
+        <button id="cerrarSesionBtn" class="logout-mini">Salir</button>
+      </div>
+    </header>
+
+    <!-- Contenedor principal SPA -->
+    <main class="main-content">
+      <section class="content" id="mainContent">
+        <div class="hero-dashboard">
+          <div class="hero-controls">
+            <button onclick="slideAnterior()">❮</button>
+            <button onclick="slideSiguiente()">❯</button>
+          </div>
+
+          <div class="hero-slides">
+            <div class="hero-slide active">
+              <img src="img/imagem.jpg.jpg" alt="Slide 1">
+            </div>
+            <div class="hero-slide">
+              <img src="img/imagen2.jpg" alt="Slide 2">
+            </div>
+            <div class="hero-slide">
+              <img src="img/imagen22.jpg" alt="Slide 3">
+            </div>
+          </div>
+
+          <div class="hero-overlay"></div>
+
+          <div class="hero-content">
+            <div class="hero-left">
+              <span class="hero-badge">🚀 ERP AUDITORÍA Y LOGÍSTICA</span>
+              <h1>Bienvenido <span id="heroUsuario"></span></h1>
+              <h2>Control total de inventarios, auditorías y operaciones</h2>
+              <p>Centraliza inventario, auditorías, recepción y usuarios desde una única plataforma.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tarjetas KPI -->
+        <div class="dashboard-kpis">
+          <div class="dashboard-kpi products">
+            <div class="kpi-icon">📦</div>
+            <div class="kpi-info">
+              <span>Total Productos</span>
+              <strong id="heroInventario">2968</strong>
+              <small>Items</small>
+            </div>
+          </div>
+
+          <div class="dashboard-kpi recepciones">
+            <div class="kpi-icon">📥</div>
+            <div class="kpi-info">
+              <span>Recepciones</span>
+              <strong id="heroRecepciones">0</strong>
+              <small>Este Mes</small>
+            </div>
+          </div>
+
+          <div class="dashboard-kpi auditorias">
+            <div class="kpi-icon">📋</div>
+            <div class="kpi-info">
+              <span>Auditorías</span>
+              <strong id="heroAuditorias">0</strong>
+              <small>Ejecutadas</small>
+            </div>
+          </div>
+
+          <div class="dashboard-kpi alertas">
+            <div class="kpi-icon">⚠️</div>
+            <div class="kpi-info">
+              <span>Alertas Activas</span>
+              <strong id="heroNovedades">0</strong>
+              <small>Notificaciones</small>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Librerías externas -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Conexión y utilidades -->
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/notificaciones.js"></script>
+  <script src="js/adjuntos-common.js"></script>
+  <script src="js/dashboard-recepcion.js"></script>
+
+  <!-- Script principal -->
+  <script src="js/dashboard.js?v=31" defer></script>
+
+</body>
+</html>

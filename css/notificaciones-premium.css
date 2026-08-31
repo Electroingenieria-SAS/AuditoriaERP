@@ -1,0 +1,264 @@
+/* =====================================================
+SISTEMA DE NOTIFICACIONES PREMIUM - GLOBAL
+Usado por todos los módulos: inventario, auditorías,
+confiabilidad, recepción, usuarios, bi, login, dashboard.
+===================================================== */
+
+#notifStack{
+  position:fixed;
+  top:20px;
+  right:20px;
+  z-index:99999;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  max-width:380px;
+  width:calc(100% - 40px);
+  pointer-events:none;
+}
+
+.notif-toast{
+  pointer-events:auto;
+  display:flex;
+  align-items:flex-start;
+  gap:14px;
+  background:rgba(255,255,255,.92);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  border-radius:16px;
+  padding:16px 18px;
+  box-shadow:
+    0 10px 30px rgba(15,23,42,.18),
+    0 2px 8px rgba(15,23,42,.08);
+  border:1px solid rgba(255,255,255,.6);
+  border-left:5px solid var(--notif-color,#2563eb);
+  transform:translateX(120%);
+  opacity:0;
+  animation:notifIn .45s cubic-bezier(.22,1,.36,1) forwards;
+  position:relative;
+  overflow:hidden;
+}
+
+.notif-toast.notif-out{
+  animation:notifOut .35s ease forwards;
+}
+
+@keyframes notifIn{
+  0%{ transform:translateX(120%); opacity:0; }
+  60%{ transform:translateX(-6px); opacity:1; }
+  100%{ transform:translateX(0); opacity:1; }
+}
+
+@keyframes notifOut{
+  0%{ transform:translateX(0); opacity:1; max-height:200px; margin-bottom:0;}
+  100%{ transform:translateX(120%); opacity:0; }
+}
+
+.notif-toast .notif-icono{
+  width:38px;
+  height:38px;
+  min-width:38px;
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:19px;
+  background:var(--notif-bg,#eff6ff);
+  color:var(--notif-color,#2563eb);
+}
+
+.notif-toast .notif-texto{
+  flex:1;
+  padding-top:2px;
+}
+
+.notif-toast .notif-titulo{
+  font-weight:800;
+  font-size:14.5px;
+  color:#0f172a;
+  margin-bottom:3px;
+  letter-spacing:.2px;
+}
+
+.notif-toast .notif-mensaje{
+  font-size:13px;
+  color:#475569;
+  line-height:1.4;
+}
+
+.notif-toast .notif-cerrar{
+  background:none;
+  border:none;
+  cursor:pointer;
+  color:#94a3b8;
+  font-size:15px;
+  line-height:1;
+  padding:2px;
+  border-radius:6px;
+  transition:.2s;
+}
+
+.notif-toast .notif-cerrar:hover{
+  color:#0f172a;
+  background:#f1f5f9;
+}
+
+.notif-toast .notif-barra{
+  position:absolute;
+  bottom:0;
+  left:0;
+  height:3px;
+  background:var(--notif-color,#2563eb);
+  opacity:.55;
+  animation:notifBarra linear forwards;
+}
+
+@keyframes notifBarra{
+  from{ width:100%; }
+  to{ width:0%; }
+}
+
+/* Tipos */
+
+.notif-success{ --notif-color:#10b981; --notif-bg:#ecfdf5; }
+.notif-error{ --notif-color:#ef4444; --notif-bg:#fef2f2; }
+.notif-warning{ --notif-color:#f59e0b; --notif-bg:#fffbeb; }
+.notif-info{ --notif-color:#2563eb; --notif-bg:#eff6ff; }
+
+/* =====================================================
+MODAL PREMIUM (confirm / prompt)
+===================================================== */
+
+#notifModalOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,.55);
+  backdrop-filter:blur(3px);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:100000;
+  padding:20px;
+  opacity:0;
+  transition:opacity .25s ease;
+}
+
+#notifModalOverlay.active{
+  display:flex;
+  opacity:1;
+}
+
+.notif-modal-box{
+  background:white;
+  border-radius:22px;
+  padding:32px 30px 26px;
+  width:100%;
+  max-width:420px;
+  box-shadow:0 25px 60px rgba(15,23,42,.35);
+  text-align:center;
+  transform:translateY(24px) scale(.96);
+  opacity:0;
+  transition:transform .3s cubic-bezier(.22,1,.36,1), opacity .3s ease;
+}
+
+#notifModalOverlay.active .notif-modal-box{
+  transform:translateY(0) scale(1);
+  opacity:1;
+}
+
+.notif-modal-icono{
+  width:64px;
+  height:64px;
+  border-radius:50%;
+  margin:0 auto 18px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:30px;
+  background:var(--notif-bg,#eff6ff);
+  color:var(--notif-color,#2563eb);
+}
+
+.notif-modal-box h2{
+  font-size:19px;
+  color:#0f172a;
+  margin-bottom:8px;
+}
+
+.notif-modal-box p{
+  font-size:14px;
+  color:#64748b;
+  line-height:1.5;
+  white-space:pre-wrap;
+}
+
+.notif-modal-box input,
+.notif-modal-box select{
+  width:100%;
+  height:50px;
+  margin-top:18px;
+  border:1px solid #cbd5e1;
+  border-radius:12px;
+  padding:0 15px;
+  font-size:14.5px;
+  text-align:center;
+  transition:.2s;
+}
+
+.notif-modal-box input:focus,
+.notif-modal-box select:focus{
+  outline:none;
+  border-color:#2563eb;
+  box-shadow:0 0 0 4px rgba(37,99,235,.15);
+}
+
+.notif-modal-botones{
+  display:flex;
+  gap:12px;
+  margin-top:26px;
+}
+
+.notif-modal-botones button{
+  flex:1;
+  border:none;
+  border-radius:12px;
+  padding:13px 16px;
+  font-weight:700;
+  font-size:14px;
+  cursor:pointer;
+  transition:.2s;
+}
+
+.notif-btn-cancelar{
+  background:#f1f5f9;
+  color:#334155;
+}
+
+.notif-btn-cancelar:hover{
+  background:#e2e8f0;
+}
+
+.notif-btn-aceptar{
+  background:var(--notif-color,#2563eb);
+  color:white;
+}
+
+.notif-btn-aceptar:hover{
+  filter:brightness(1.08);
+  transform:translateY(-1px);
+}
+
+@media(max-width:480px){
+
+  #notifStack{
+    right:10px;
+    left:10px;
+    max-width:none;
+    width:auto;
+  }
+
+  .notif-modal-box{
+    padding:26px 22px 22px;
+  }
+
+}

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>BI Inteligente</title>
+
+    <!-- ESTILOS -->
+    <link rel="stylesheet" href="../css/bi.css">
+    <link rel="stylesheet" href="../css/notificaciones-premium.css">
+
+    <!-- DATATABLES CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+
+</head>
+
+<body>
+
+    <div class="bi-container">
+
+        <!-- ==========================================
+             HEADER
+        =========================================== -->
+        <div class="bi-header">
+
+            <div>
+                <h1>📊 BI Inteligente</h1>
+                <p>
+                    Cargue un archivo Excel y genere dashboards automáticamente.
+                </p>
+            </div>
+
+            <input
+                type="file"
+                id="excelBI"
+                accept=".xlsx,.xls"
+            >
+
+        </div>
+
+        <!-- ==========================================
+             KPIS
+        =========================================== -->
+        <div class="kpis">
+
+            <div class="card-kpi">
+                <h3>Registros</h3>
+                <span id="kpiRegistros">0</span>
+            </div>
+
+            <div class="card-kpi">
+                <h3>Total</h3>
+                <span id="kpiTotal">0</span>
+            </div>
+
+            <div class="card-kpi">
+                <h3>Promedio</h3>
+                <span id="kpiPromedio">0</span>
+            </div>
+
+            <div class="card-kpi">
+                <h3>Máximo</h3>
+                <span id="kpiMaximo">0</span>
+            </div>
+
+        </div>
+
+        <!-- ==========================================
+             DASHBOARD
+        =========================================== -->
+        <div class="dashboard-grid">
+
+            <!-- PANELES DE GRAFICOS -->
+            <div class="panel-graficos">
+
+                <!-- GRAFICO PRINCIPAL -->
+                <div class="grafico-card">
+
+                    <h3>Gráfico Principal</h3>
+
+                    <div class="configuracion-grafico">
+
+                        <select id="dimension"></select>
+
+                        <select id="metrica"></select>
+
+                        <select id="tipoGrafico">
+                            <option value="bar">Barras</option>
+                            <option value="line">Líneas</option>
+                            <option value="pie">Pastel</option>
+                            <option value="doughnut">Dona</option>
+                        </select>
+
+                        <button id="btnGenerar">
+                            Generar Dashboard
+                        </button>
+
+                    </div>
+
+                    <canvas id="graficoPrincipal"></canvas>
+
+                </div>
+
+                <!-- TOP 10 -->
+                <div class="grafico-card">
+                    <h3>Top 10</h3>
+                    <canvas id="graficoTop"></canvas>
+                </div>
+
+                <!-- TENDENCIA -->
+                <div class="grafico-card">
+                    <h3>Tendencia</h3>
+                    <canvas id="graficoLinea"></canvas>
+                </div>
+
+            </div>
+
+            <!-- PANEL FILTROS -->
+            <div class="panel-filtros">
+
+                <h3>Filtros</h3>
+
+                <label>Producto</label>
+                <select id="filtroProducto">
+                    <option>Todos</option>
+                </select>
+
+                <label>Sede</label>
+                <select id="filtroSede">
+                    <option>Todas</option>
+                </select>
+
+                <label>Estado</label>
+                <select id="filtroEstado">
+                    <option>Todos</option>
+                </select>
+
+                <button id="btnAplicar">
+                    Aplicar Filtros
+                </button>
+
+            </div>
+
+        </div>
+
+        <!-- ==========================================
+             TABLA DE DATOS
+        =========================================== -->
+        <div class="tabla-card">
+
+            <h3>Datos Cargados</h3>
+
+            <table
+                id="tablaBI"
+                class="display"
+                style="width:100%"
+            ></table>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================================
+         LIBRERIAS EXTERNAS (CDN)
+    =========================================== -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- NOTIFICACIONES -->
+    <script src="../js/notificaciones.js"></script>
+
+    <!-- LOGICA BI -->
+    <script src="../js/bi-upload.js"></script>
+    <script src="../js/bi-kpis.js"></script>
+    <script src="../js/bi-main.js"></script>
+
+</body>
+
+</html>

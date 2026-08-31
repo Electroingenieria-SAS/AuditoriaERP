@@ -1,0 +1,401 @@
+<div class="module-container">
+
+  <header class="module-header">
+    <div class="header-title">
+      <div class="header-icon">📋</div>
+      <div>
+        <h2>Auditorías</h2>
+        <p>Control pericial, trazabilidad logística e historial documental.</p>
+      </div>
+    </div>
+  </header>
+
+  <section class="module-card">
+    <div class="table-header">
+      <div class="table-header-title">
+        <div class="card-icon">📝</div>
+        <div>
+          <h3>Registrar Auditoría</h3>
+          <p class="section-description">
+            Complete los campos o use <kbd>Tab</kbd> / <kbd>Enter</kbd> para navegar rápidamente.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <form id="formAuditoriaFast" autocomplete="off" onsubmit="event.preventDefault();">
+      <div class="form-grid">
+        <div class="input-group">
+          <label for="tipoInput">Tipo de Auditoría</label>
+          <select id="tipoInput" required>
+            <option value="">Seleccione</option>
+            <option value="Inventario">Inventario</option>
+            <option value="Recepciones">Recepciones</option>
+            <option value="Compras">Compras</option>
+            <option value="Despachos">Despachos</option>
+            <option value="Ventas">Ventas</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label for="responsableInput">Responsable</label>
+          <input
+            id="responsableInput"
+            type="text"
+            placeholder="ej. Andrés Villegas"
+            required
+          >
+        </div>
+
+        <div class="input-group">
+          <label for="nombreInput">Nombre de la Auditoría</label>
+          <input
+            id="nombreInput"
+            type="text"
+            placeholder="ej. Inventario Bodega 201"
+            required
+          >
+        </div>
+
+        <div class="input-group">
+          <label for="fechaInput">Fecha</label>
+          <input
+            id="fechaInput"
+            type="date"
+            required
+          >
+        </div>
+
+        <div class="input-group">
+          <label for="procesoInput">Proceso / Referencia</label>
+          <input
+            id="procesoInput"
+            type="text"
+            placeholder="ej. Logística Bodega 201"
+            required
+          >
+        </div>
+
+        <div class="input-group">
+          <label for="estadoInput">Estado</label>
+          <select id="estadoInput">
+            <option value="Pendiente" selected>Pendiente</option>
+            <option value="En proceso">En proceso</option>
+            <option value="Finalizada">Finalizada</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="input-group textarea-group">
+        <label for="observacionesInput">Observaciones y Hallazgos</label>
+        <textarea
+          id="observacionesInput"
+          placeholder="Escriba las observaciones detalladas del peritaje..."
+        ></textarea>
+      </div>
+    </form>
+  </section>
+
+  <section class="module-card">
+    <div class="table-header">
+      <div class="table-header-title">
+        <div class="card-icon">📎</div>
+        <div>
+          <h3>Documentos Adjuntos</h3>
+          <p class="section-description">
+            Entre 1 y 10 archivos (imágenes, PDF, videos) o enlaces de Google Drive.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="documentos-container">
+      <div id="listaDocumentos">
+        <div class="documento-vacio">
+          📄 Ningún documento agregado.
+        </div>
+      </div>
+
+      <div class="button-group">
+        <input
+          id="documentoInput"
+          type="file"
+          accept="image/*,application/pdf,video/*,.heic,.heif,.mov,.m4v,.mkv,.xlsx,.xls,.csv,.doc,.docx,.txt"
+          multiple
+          hidden
+        >
+        <button
+          id="btnAgregarDocumento"
+          class="btn-secondary"
+          type="button"
+          data-action="trigger-crear-file"
+        >
+          <span class="btn-icon">＋</span> Seleccionar Archivos
+        </button>
+      </div>
+
+      <div class="adjuntos-link-row">
+        <input
+          id="driveLinkAuditoria"
+          type="url"
+          placeholder="Pegue un enlace de Google Drive y presione Enter"
+        >
+        <button
+          id="btnAgregarDriveAuditoria"
+          class="btn-secondary"
+          type="button"
+          data-action="trigger-crear-drive"
+        >
+          Agregar Enlace
+        </button>
+      </div>
+
+      <div class="adjuntos-panel__header">
+        <p class="adjuntos-ayuda">Formatos permitidos: imágenes, PDF, Office y video. Máximo 100 MB por archivo.</p>
+        <span class="adjuntos-contador" id="contadorDocumentosAuditoria">0 / 10</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="guardar-container">
+    <button
+      id="guardarAuditoria"
+      class="btn-primary"
+      type="button"
+    >
+      <span class="btn-icon">💾</span> Guardar Auditoría
+    </button>
+  </div>
+
+  <section class="module-card">
+    <div class="table-header">
+      <div class="table-header-title">
+        <div class="card-icon">📊</div>
+        <div>
+          <h3>Historial de Auditorías</h3>
+          <p class="section-description">
+            Consulte, gestione y descargue los registros de auditorías.
+          </p>
+        </div>
+      </div>
+
+      <div class="table-tools">
+        <div class="search-wrapper">
+          <span class="search-icon">🔍</span>
+          <input
+            type="text"
+            id="buscarAuditoria"
+            class="input-search"
+            placeholder="Buscar por nombre, proceso, responsable..."
+            autocomplete="off"
+          >
+        </div>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <table class="table-pro">
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Auditoría</th>
+            <th>Responsable</th>
+            <th>Estado</th>
+            <th>Fecha</th>
+            <th style="text-align:center;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="auditoriasBody">
+          </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div id="modalDetalleAuditoria" class="modal-documentos" role="dialog" aria-modal="true">
+    <div class="modal-documentos-content modal-detalle">
+      <div class="modal-header">
+        <h3>Detalle de la Auditoría</h3>
+        <button
+          id="cerrarDetalleAuditoria"
+          class="btn-cerrar-modal"
+          type="button"
+          aria-label="Cerrar modal"
+        >✕</button>
+      </div>
+
+      <div class="detalle-grid">
+        <div class="detalle-item">
+          <label>Tipo</label>
+          <span id="detalleTipo">-</span>
+        </div>
+        <div class="detalle-item">
+          <label>Estado</label>
+          <span id="detalleEstado">-</span>
+        </div>
+        <div class="detalle-item">
+          <label>Nombre</label>
+          <span id="detalleNombre">-</span>
+        </div>
+        <div class="detalle-item">
+          <label>Responsable</label>
+          <span id="detalleResponsable">-</span>
+        </div>
+        <div class="detalle-item">
+          <label>Proceso</label>
+          <span id="detalleProceso">-</span>
+        </div>
+        <div class="detalle-item">
+          <label>Fecha</label>
+          <span id="detalleFecha">-</span>
+        </div>
+      </div>
+
+      <div class="detalle-observaciones">
+        <h4>Observaciones</h4>
+        <div id="detalleObservaciones"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalDocumentos" class="modal-documentos" role="dialog" aria-modal="true">
+    <div class="modal-documentos-content">
+      <div class="modal-header">
+        <h3>Documentos de la Auditoría</h3>
+        <button
+          id="cerrarModalDocumentos"
+          class="btn-cerrar-modal"
+          type="button"
+          aria-label="Cerrar modal"
+        >✕</button>
+      </div>
+
+      <div id="listaDocumentosModal"></div>
+
+      <div class="adjuntos-panel" style="margin:20px 30px 30px;">
+        <div class="adjuntos-panel__header">
+          <div>
+            <strong>Agregar más soportes</strong>
+            <p>El total de la auditoría no puede superar 10.</p>
+          </div>
+          <span class="adjuntos-contador" id="contadorDocumentosModal">0 / 10</span>
+        </div>
+        <div class="adjuntos-acciones">
+          <input
+            type="file"
+            id="actualizarDocumentoInput"
+            accept="image/*,application/pdf,video/*,.heic,.heif,.mov,.m4v,.mkv,.xlsx,.xls,.csv,.doc,.docx,.txt"
+            multiple
+            hidden
+          >
+          <button type="button" id="btnAgregarArchivoModal" class="btn-secondary">＋ Seleccionar archivos</button>
+        </div>
+        <div class="adjuntos-link-row">
+          <input type="url" id="driveLinkModalAuditoria" placeholder="Pegue un enlace de Google Drive y presione Enter">
+          <button type="button" id="btnAgregarDriveModal" class="btn-secondary">Agregar enlace</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalEditarAuditoria" class="modal-documentos" role="dialog" aria-modal="true">
+    <div class="modal-documentos-content modal-editar">
+      <div class="modal-header">
+        <h3>Editar Auditoría</h3>
+        <button
+          id="cerrarEditarAuditoria"
+          class="btn-cerrar-modal"
+          type="button"
+          aria-label="Cerrar modal"
+        >✕</button>
+      </div>
+
+      <input type="hidden" id="editarAuditoriaId">
+
+      <div style="padding:30px;">
+        <div class="form-grid">
+          <div class="input-group">
+            <label for="editarTipo">Tipo</label>
+            <select id="editarTipo">
+              <option value="Inventario">Inventario</option>
+              <option value="Recepciones">Recepciones</option>
+              <option value="Compras">Compras</option>
+              <option value="Despachos">Despachos</option>
+              <option value="Ventas">Ventas</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label for="editarResponsable">Responsable</label>
+            <input id="editarResponsable" type="text">
+          </div>
+
+          <div class="input-group">
+            <label for="editarNombre">Nombre</label>
+            <input id="editarNombre" type="text">
+          </div>
+
+          <div class="input-group">
+            <label for="editarFecha">Fecha</label>
+            <input id="editarFecha" type="date">
+          </div>
+
+          <div class="input-group">
+            <label for="editarProceso">Proceso</label>
+            <input id="editarProceso" type="text">
+          </div>
+
+          <div class="input-group">
+            <label for="editarEstado">Estado</label>
+            <select id="editarEstado">
+              <option value="Pendiente">Pendiente</option>
+              <option value="En proceso">En proceso</option>
+              <option value="Finalizada">Finalizada</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="input-group textarea-group">
+          <label for="editarObservaciones">Observaciones</label>
+          <textarea id="editarObservaciones"></textarea>
+        </div>
+
+        <div class="adjuntos-panel" style="margin-top:24px;">
+          <div class="adjuntos-panel__header">
+            <div>
+              <strong>Agregar soportes</strong>
+              <p>Los soportes nuevos se anexan a los existentes sin reemplazarlos.</p>
+            </div>
+            <span class="adjuntos-contador" id="contadorDocumentosEdicion">0 nuevos</span>
+          </div>
+
+          <div class="adjuntos-acciones">
+            <input
+              type="file"
+              id="editarDocumento"
+              accept="image/*,application/pdf,video/*,.heic,.heif,.mov,.m4v,.mkv,.xlsx,.xls,.csv,.doc,.docx,.txt"
+              multiple
+              hidden
+            >
+            <button type="button" id="btnAgregarDocumentoEdicion" class="btn-secondary">＋ Seleccionar archivos</button>
+          </div>
+
+          <div class="adjuntos-link-row">
+            <input type="url" id="driveLinkEdicionAuditoria" placeholder="Pegue un enlace de Google Drive y presione Enter">
+            <button type="button" id="btnAgregarDriveEdicion" class="btn-secondary">Agregar enlace</button>
+          </div>
+
+          <div id="listaDocumentosEdicion" class="adjuntos-lista">
+            <div class="adjunto-vacio">No hay soportes nuevos seleccionados.</div>
+          </div>
+        </div>
+
+        <div class="guardar-container" style="margin-top:24px;">
+          <button id="guardarEdicionAuditoria" class="btn-primary" type="button">
+            💾 Guardar Cambios
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

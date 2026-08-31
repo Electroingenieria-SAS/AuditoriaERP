@@ -1,0 +1,231 @@
+-- =====================================================
+-- 001_INITIAL_SCHEMA.SQL
+-- Creación de tablas operativas principales
+-- =====================================================
+
+-- 1. Tabla de Usuarios
+CREATE TABLE IF NOT EXISTS public.usuarios (
+    id BIGSERIAL PRIMARY KEY,
+    usuario TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    rol TEXT NOT NULL DEFAULT 'auditor',
+    estado TEXT NOT NULL DEFAULT 'Activo',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 2. Tabla de Permisos por Módulo
+CREATE TABLE IF NOT EXISTS public.permisos (
+    id BIGSERIAL PRIMARY KEY,
+    usuario TEXT NOT NULL REFERENCES public.usuarios(usuario) ON UPDATE CASCADE ON DELETE CASCADE,
+    modulo TEXT NOT NULL,
+    ver BOOLEAN NOT NULL DEFAULT false,
+    crear BOOLEAN NOT NULL DEFAULT false,
+    editar BOOLEAN NOT NULL DEFAULT false,
+    eliminar BOOLEAN NOT NULL DEFAULT false,
+    UNIQUE(usuario, modulo)
+);
+
+-- 3. Tabla de Recepciones
+CREATE TABLE IF NOT EXISTS public.recepciones (
+    id BIGSERIAL PRIMARY KEY,
+    proveedor TEXT NOT NULL,
+    material TEXT NOT NULL,
+    tipo TEXT NOT NULL DEFAULT 'Cajas',
+    cantidad NUMERIC NOT NULL DEFAULT 0,
+    revisadas NUMERIC NOT NULL DEFAULT 0,
+    novedades NUMERIC NOT NULL DEFAULT 0,
+    faltantes NUMERIC NOT NULL DEFAULT 0,
+    estado TEXT NOT NULL DEFAULT 'Dañado',
+    novedad_original TEXT,
+    estado_gestion TEXT NOT NULL DEFAULT 'Pendiente',
+    observacion TEXT,
+    soportes JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 4. Tabla de Auditorías
+CREATE TABLE IF NOT EXISTS public.auditorias (
+    id BIGSERIAL PRIMARY KEY,
+    tipo TEXT NOT NULL,
+    nombre TEXT NOT NULL,
+    responsable TEXT NOT NULL,
+    fecha DATE NOT NULL DEFAULT CURRENT_DATE,
+    proceso TEXT,
+    estado TEXT NOT NULL DEFAULT 'Pendiente',
+    observaciones TEXT,
+    documentos JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- =====================================================
+-- 002_INVENTARIO_CONFIABILIDAD.SQL
+-- Control de inventarios y métricas de confiabilidad
+-- =====================================================
+
+-- 1. Tabla de Inventario Base
+CREATE TABLE IF NOT EXISTS public.inventario (
+    id BIGSERIAL PRIMARY KEY,
+    codigo TEXT NOT NULL,
+    producto TEXT NOT NULL,
+    ubicacion TEXT,
+    stock_sistema NUMERIC NOT NULL DEFAULT 0,
+    conteo_fisico NUMERIC,
+    diferencia NUMERIC,
+    estado TEXT DEFAULT 'Pendiente',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 2. Tabla de Novedades de Inventario
+CREATE TABLE IF NOT EXISTS public.novedades_inventario (
+    id BIGSERIAL PRIMARY KEY,
+    codigo TEXT NOT NULL,
+    material TEXT NOT NULL,
+    stock_sistema NUMERIC NOT NULL DEFAULT 0,
+    conteo_fisico NUMERIC NOT NULL DEFAULT 0,
+    diferencia NUMERIC NOT NULL DEFAULT 0,
+    tipo TEXT NOT NULL,
+    usuario TEXT,
+    observacion TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 3. Tabla de Confiabilidad de Inventario
+CREATE TABLE IF NOT EXISTS public.confiabilidad (
+    id BIGSERIAL PRIMARY KEY,
+    anio INT NOT NULL,
+    mes TEXT NOT NULL,
+    nombre_inventario TEXT NOT NULL,
+    total_empresa NUMERIC NOT NULL DEFAULT 0,
+    programados NUMERIC NOT NULL DEFAULT 0,
+    auditados NUMERIC NOT NULL DEFAULT 0,
+    correctos NUMERIC NOT NULL DEFAULT 0,
+    sobrantes NUMERIC NOT NULL DEFAULT 0,
+    faltantes NUMERIC NOT NULL DEFAULT 0,
+    valor_inventario NUMERIC NOT NULL DEFAULT 0,
+    valor_auditado NUMERIC NOT NULL DEFAULT 0,
+    valor_diferencias NUMERIC NOT NULL DEFAULT 0,
+    valor_ajustes NUMERIC NOT NULL DEFAULT 0,
+    indice_general NUMERIC NOT NULL DEFAULT 0,
+    confiabilidad_fisica NUMERIC NOT NULL DEFAULT 0,
+    confiabilidad_economica NUMERIC NOT NULL DEFAULT 0,
+    cobertura NUMERIC NOT NULL DEFAULT 0,
+    cumplimiento NUMERIC NOT NULL DEFAULT 0,
+    confiabilidad_ajustes NUMERIC NOT NULL DEFAULT 0,
+    estado TEXT NOT NULL DEFAULT 'En análisis',
+    usuario TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- =====================================================
+-- 003_HISTORIAL_SEGUIMIENTO.SQL
+-- Trazabilidad general y seguimiento de compras
+-- =====================================================
+
+-- 1. Tabla de Historial de Acciones
+CREATE TABLE IF NOT EXISTS public.historial (
+    id BIGSERIAL PRIMARY KEY,
+    usuario TEXT NOT NULL,
+    accion TEXT NOT NULL,
+    modulo TEXT NOT NULL,
+    descripcion TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 2. Tabla de Seguimiento de Novedades en Recepciones
+CREATE TABLE IF NOT EXISTS public.seguimiento_recepcion (
+    id BIGSERIAL PRIMARY KEY,
+    recepcion_id BIGINT NOT NULL REFERENCES public.recepciones(id) ON DELETE CASCADE,
+    estado_anterior TEXT,
+    estado_nuevo TEXT NOT NULL,
+    comentario TEXT,
+    usuario TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- =====================================================
+-- 004_STORAGE_BUCKETS.SQL
+-- Configuración de Buckets de Archivos en Supabase Storage
+-- =====================================================
+
+-- Bucket público para actas y soportes de recepción
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('recepciones-pdf', 'recepciones-pdf', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Bucket para soportes documentales de auditorías
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('auditorias', 'auditorias', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Políticas de acceso para archivos de recepción
+CREATE POLICY "Permitir subida publica recepciones" 
+ON storage.objects FOR INSERT 
+WITH CHECK (bucket_id = 'recepciones-pdf');
+
+CREATE POLICY "Permitir lectura publica recepciones" 
+ON storage.objects FOR SELECT 
+USING (bucket_id = 'recepciones-pdf');
+
+-- Políticas de acceso para archivos de auditorías
+CREATE POLICY "Permitir subida auditorias" 
+ON storage.objects FOR INSERT 
+WITH CHECK (bucket_id = 'auditorias');
+
+CREATE POLICY "Permitir lectura auditorias" 
+ON storage.objects FOR SELECT 
+USING (bucket_id = 'auditorias');
+
+-- =====================================================
+-- 005_SECURITY_AND_RLS.SQL
+-- Activación de Row Level Security (RLS)
+-- =====================================================
+
+ALTER TABLE public.usuarios ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.permisos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recepciones ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.auditorias ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventario ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.novedades_inventario ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.confiabilidad ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.historial ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.seguimiento_recepcion ENABLE ROW LEVEL SECURITY;
+
+-- Políticas permisivas para acceso operacional autenticado
+CREATE POLICY "Acceso total recepciones" ON public.recepciones FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Acceso total auditorias" ON public.auditorias FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Acceso total inventario" ON public.inventario FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Acceso total novedades" ON public.novedades_inventario FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Acceso total confiabilidad" ON public.confiabilidad FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Acceso total permisos" ON public.permisos FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Lectura usuarios" ON public.usuarios FOR SELECT USING (true);
+CREATE POLICY "Escritura usuarios" ON public.usuarios FOR INSERT WITH CHECK (true);
+CREATE POLICY "Actualizacion usuarios" ON public.usuarios FOR UPDATE USING (true);
+CREATE POLICY "Acceso total historial" ON public.historial FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Acceso total seguimiento" ON public.seguimiento_recepcion FOR ALL USING (true) WITH CHECK (true);
+
+-- =====================================================
+-- 006_SEED_ADMIN.SQL
+-- Creación del usuario Administrador inicial y permisos
+-- =====================================================
+
+-- 1. Insertar usuario Administrador base
+INSERT INTO public.usuarios (usuario, password, rol, estado)
+VALUES ('admin', 'admin123', 'admin', 'Activo')
+ON CONFLICT (usuario) DO UPDATE 
+SET estado = 'Activo', rol = 'admin';
+
+-- 2. Asignar permisos completos a todos los módulos
+INSERT INTO public.permisos (usuario, modulo, ver, crear, editar, eliminar)
+VALUES 
+    ('admin', 'inventario', true, true, true, true),
+    ('admin', 'recepcion', true, true, true, true),
+    ('admin', 'auditorias', true, true, true, true),
+    ('admin', 'confiabilidad', true, true, true, true),
+    ('admin', 'usuarios', true, true, true, true),
+    ('admin', 'historial', true, true, true, true)
+ON CONFLICT (usuario, modulo) DO UPDATE 
+SET ver = true, crear = true, editar = true, eliminar = true;
+
+-- 3. Registrar la acción en el historial del sistema
+INSERT INTO public.historial (usuario, accion, modulo, descripcion)
+VALUES ('admin', 'INICIALIZACIÓN', 'sistema', 'Creación del usuario Administrador principal y configuración de permisos base.');

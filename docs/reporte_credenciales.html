@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entrega Técnica - Inventario de Credenciales y Servicios</title>
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --secondary: #0f172a;
+      --accent: #2563eb;
+      --bg: #f8fafc;
+      --text: #334155;
+      --border: #e2e8f0;
+      --danger: #dc2626;
+      --success: #16a34a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: #e5e7eb;
+      color: var(--text);
+      padding: 40px 20px;
+      line-height: 1.5;
+    }
+
+    .document {
+      background: #ffffff;
+      max-width: 850px;
+      margin: 0 auto;
+      padding: 50px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .actions-bar {
+      max-width: 850px;
+      margin: 0 auto 20px auto;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .btn {
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn:hover {
+      background: var(--accent);
+    }
+
+    header {
+      border-bottom: 2px solid var(--primary);
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .header-title h1 {
+      color: var(--primary);
+      font-size: 22px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .header-title p {
+      color: #64748b;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    .header-meta {
+      text-align: right;
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    h2 {
+      color: var(--secondary);
+      font-size: 16px;
+      border-left: 4px solid var(--primary);
+      padding-left: 10px;
+      margin: 30px 0 15px 0;
+      text-transform: uppercase;
+    }
+
+    p, li {
+      font-size: 13.5px;
+      margin-bottom: 10px;
+      text-align: justify;
+    }
+
+    ul {
+      padding-left: 20px;
+      margin-bottom: 15px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0 25px 0;
+      font-size: 12.5px;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f1f5f9;
+      color: var(--secondary);
+      font-weight: 600;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-public { background: #dbeafe; color: #1e40af; }
+    .badge-private { background: #fee2e2; color: #991b1b; }
+    .badge-internal { background: #fef3c7; color: #92400e; }
+
+    code, pre {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 12px;
+    }
+
+    pre {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 15px 0;
+    }
+
+    .note-box {
+      background: #eff6ff;
+      border-left: 4px solid var(--accent);
+      padding: 12px 16px;
+      margin: 20px 0;
+      font-size: 13px;
+      border-radius: 0 6px 6px 0;
+    }
+
+    .footer-sign {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    @media print {
+      body {
+        background: transparent;
+        padding: 0;
+      }
+      .actions-bar {
+        display: none;
+      }
+      .document {
+        padding: 0;
+        box-shadow: none;
+        max-width: 100%;
+      }
+      h2 {
+        page-break-after: avoid;
+      }
+      table, pre {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="actions-bar">
+    <button class="btn" onclick="window.print()">🖨️ Guardar como PDF / Imprimir</button>
+  </div>
+
+  <div class="document">
+    <header>
+      <div class="header-title">
+        <h1>Documento de Entrega Técnica</h1>
+        <p>Inventario de Servicios, Credenciales y Guía de Despliegue</p>
+      </div>
+      <div class="header-meta">
+        <strong>Proyecto:</strong> ERP Auditoría & Logística<br>
+        <strong>Fecha:</strong> 26 de Agosto, 2026<br>
+        <strong>Estado:</strong> Listo para Producción
+      </div>
+    </header>
+
+    <p>
+      Estimado equipo de infraestructura, he finalizado la refactorización y migración técnica del ERP, desacoplando completamente el sistema de Vercel y centralizando el consumo de servicios en Supabase. A continuación, detallo el inventario exhaustivo de servicios, la clasificación de credenciales, las variables de entorno necesarias en el servidor y las directivas de seguridad para el despliegue.
+    </p>
+
+    <h2>1. Inventario de Servicios y Arquitectura</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Servicio</th>
+          <th>Función en el Sistema</th>
+          <th>Estado en Despliegue</th>
+          <th>Configuración Necesaria</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Vercel</strong></td>
+          <td>Hosting frontend original</td>
+          <td><span class="badge badge-private">Reemplazado</span></td>
+          <td>Se elimina. Ya no existen dependencias de su plataforma.</td>
+        </tr>
+        <tr>
+          <td><strong>Nuevo Hosting</strong></td>
+          <td>Servidor web estático (HTML/JS/CSS)</td>
+          <td><span class="badge badge-public">Producción</span></td>
+          <td>Directorio raíz público (<code>public_html</code> / Nginx) con SSL/HTTPS activo.</td>
+        </tr>
+        <tr>
+          <td><strong>Supabase PostgreSQL</strong></td>
+          <td>Base de datos relacional y Auth</td>
+          <td><span class="badge badge-public">Activo</span></td>
+          <td>Esquema ejecutado (scripts 001 a 006) y RLS habilitado en todas las tablas.</td>
+        </tr>
+        <tr>
+          <td><strong>Supabase Storage</strong></td>
+          <td>Almacenamiento de actas y evidencias</td>
+          <td><span class="badge badge-public">Activo</span></td>
+          <td>Buckets configurados: <code>recepciones-pdf</code> y <code>auditorias</code>.</td>
+        </tr>
+        <tr>
+          <td><strong>Supabase Realtime</strong></td>
+          <td>Sincronización en vivo vía WebSockets</td>
+          <td><span class="badge badge-public">Activo</span></td>
+          <td>Publicación activa para tablas de recepciones, auditorías y usuarios.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>2. Inventario y Clasificación de Credenciales</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Credencial / Variable</th>
+          <th>Servicio Asociado</th>
+          <th>Ámbito</th>
+          <th>Nivel de Permisos Requerido</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>SUPABASE_ANON_KEY</code></td>
+          <td>Supabase API & Auth</td>
+          <td><span class="badge badge-public">Frontend</span></td>
+          <td>Permisos CRUD restringidos a nivel de fila por políticas RLS activas.</td>
+        </tr>
+        <tr>
+          <td><code>SUPABASE_SERVICE_ROLE</code></td>
+          <td>Supabase Backend / Admin</td>
+          <td><span class="badge badge-private">Estrictamente Privada</span></td>
+          <td>Superusuario (Bypass RLS). <strong>No debe exponerse en el cliente</strong>.</td>
+        </tr>
+        <tr>
+          <td><code>POSTGRES_URL</code></td>
+          <td>Motor PostgreSQL</td>
+          <td><span class="badge badge-private">Infraestructura</span></td>
+          <td>Conexión directa puerto 5432/6543 para migraciones y mantenimiento.</td>
+        </tr>
+        <tr>
+          <td><code>Usuario Administrador</code></td>
+          <td>Acceso Interfaz ERP</td>
+          <td><span class="badge badge-internal">Operacional</span></td>
+          <td>Rol <code>admin</code> con permisos totales en todos los módulos operativos.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>3. Credenciales que Deben Regenerarse</h2>
+    <p>Para asegurar el cumplimiento de las buenas prácticas de seguridad en el pase a producción, he definido las siguientes acciones:</p>
+    <ul>
+      <li><strong>Contraseña de usuario administrador:</strong> He provisionado la cuenta inicial con el usuario <code>admin</code> y contraseña temporal <code>admin123</code>. Esta debe cambiarse inmediatamente en el primer inicio de sesión desde el módulo de Usuarios.</li>
+      <li><strong>Rotación de llaves API (Opcional):</strong> Si el repositorio estuvo temporalmente expuesto, recomiendo ingresar a <em>Supabase Dashboard > Settings > API</em> y generar un nuevo par de claves <code>anon</code> y <code>service_role</code>.</li>
+      <li><strong>Contraseña del usuario <code>postgres</code>:</strong> Actualizar la contraseña de la base de datos en Supabase para evitar accesos administrativos directos no autorizados.</li>
+    </ul>
+
+    <h2>4. Variables de Entorno del Servidor (.env)</h2>
+    <p>He estructurado el cliente para consumir las siguientes variables de configuración en el servidor:</p>
+    <pre><code># ===================================================
+# CONFIGURACIÓN DE PRODUCCIÓN - ERP
+# ===================================================
+SUPABASE_URL=https://hurxdjoiafkjoyrmyhbd.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1cnhkam9pYWZram95cm15aGJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzgxMTMsImV4cCI6MjA5NTMxNDExM30.Z6fRiWft3eSEVNZbWflmcvVcHAJTAEA37tPdp4LRnTg
+NODE_ENV=production
+ALLOWED_ORIGIN=https://tu-dominio-produccion.com</code></pre>
+
+    <h2>5. Directivas de Seguridad y Servidor Web</h2>
+    <div class="note-box">
+      <strong>Parámetros para la configuración de Nginx / Apache:</strong>
+      <ul style="margin-top: 8px; margin-bottom: 0;">
+        <li><strong>HTTPS Obligatorio:</strong> Redirección de todo el tráfico HTTP a HTTPS mediante certificado SSL válido.</li>
+        <li><strong>Content Security Policy (CSP):</strong> Permitir conexiones únicamente hacia los dominios autorizados: <code>https://hurxdjoiafkjoyrmyhbd.supabase.co</code> y <code>wss://hurxdjoiafkjoyrmyhbd.supabase.co</code>.</li>
+        <li><strong>Cabeceras de Protección:</strong> Activar <code>X-Frame-Options: SAMEORIGIN</code> y <code>X-Content-Type-Options: nosniff</code>.</li>
+      </ul>
+    </div>
+
+    <div class="footer-sign">
+      <p><strong>Entregado por:</strong> Luis Grisales</p>
+      <p>El código fuente se encuentra versionado y estructurado en el repositorio principal con sus scripts de base de datos en <code>supabase/migrations/</code>.</p>
+    </div>
+  </div>
+
+</body>
+</html>

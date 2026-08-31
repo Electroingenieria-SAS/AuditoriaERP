@@ -1,0 +1,153 @@
+.adjuntos-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  margin-top: 8px;
+  border: 1px solid rgba(15, 57, 92, 0.14);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fafe 100%);
+}
+
+.adjuntos-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.adjuntos-panel__header h4,
+.adjuntos-panel__header strong {
+  margin: 0;
+  color: #17324d;
+}
+
+.adjuntos-panel__header p {
+  margin: 4px 0 0;
+  color: #66788a;
+  font-size: 0.86rem;
+}
+
+.adjuntos-contador {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #eaf2fb;
+  color: #174f7c;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.adjuntos-acciones,
+.adjuntos-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.adjuntos-link-row input[type="url"] {
+  flex: 1 1 320px;
+  min-width: 220px;
+}
+
+.adjuntos-lista {
+  display: grid;
+  gap: 9px;
+}
+
+.adjunto-vacio {
+  padding: 14px;
+  border: 1px dashed rgba(15, 57, 92, 0.24);
+  border-radius: 10px;
+  color: #708090;
+  text-align: center;
+  background: #fff;
+}
+
+.adjunto-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid rgba(15, 57, 92, 0.12);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.adjunto-item__info {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.adjunto-item__icono {
+  font-size: 1.25rem;
+}
+
+.adjunto-item__texto {
+  min-width: 0;
+}
+
+.adjunto-item__nombre {
+  display: block;
+  max-width: 520px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #19344f;
+  font-weight: 700;
+}
+
+.adjunto-item__meta {
+  display: block;
+  margin-top: 2px;
+  color: #748495;
+  font-size: 0.78rem;
+}
+
+.adjunto-item__acciones {
+  display: flex;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.adjunto-btn {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.adjunto-btn--abrir {
+  color: #fff;
+  background: #155d93;
+}
+
+.adjunto-btn--eliminar {
+  color: #9d1c2c;
+  background: #fdecef;
+}
+
+.adjuntos-ayuda {
+  margin: 0;
+  color: #6b7c8e;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 680px) {
+  .adjunto-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .adjunto-item__acciones {
+    width: 100%;
+  }
+
+  .adjunto-btn {
+    flex: 1;
+  }
+}

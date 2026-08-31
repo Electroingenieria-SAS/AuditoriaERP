@@ -1,0 +1,1635 @@
+/*=====================================================
+  CONFIABILIDAD DE INVENTARIO — ELECTROINGENIERÍA S.A.S.
+  Rediseño visual · Sistema de diseño ERP
+  Tipografía: Sora (display) + Inter (texto / datos)
+=====================================================*/
+
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root{
+
+    /* ---- Marca ---- */
+    --conf-primary:#0039A6;
+    --conf-primary-light:#2563EB;
+    --conf-primary-dark:#05152E;
+    --conf-secondary:#FFD400;
+
+    /* ---- Superficies ---- */
+    --conf-white:#FFFFFF;
+    --conf-background:#EEF2F9;
+    --conf-card:#FFFFFF;
+    --conf-surface-soft:#F6F9FF;
+
+    /* ---- Texto ---- */
+    --conf-text:#1B2534;
+    --conf-text-light:#66748B;
+    --conf-text-muted:#97A3B6;
+
+    /* ---- Estados ---- */
+    --conf-success:#22C55E;
+    --conf-success-bg:#DCFCE7;
+    --conf-success-text:#15803D;
+
+    --conf-info:#2563EB;
+    --conf-info-bg:#DBEAFE;
+    --conf-info-text:#1D4ED8;
+
+    --conf-warning:#F59E0B;
+    --conf-warning-bg:#FEF3C7;
+    --conf-warning-text:#92400E;
+
+    --conf-orange:#F97316;
+    --conf-orange-bg:#FFEDD5;
+    --conf-orange-text:#C2410C;
+
+    --conf-danger:#EF4444;
+    --conf-danger-bg:#FEE2E2;
+    --conf-danger-text:#B91C1C;
+
+    /* ---- Bordes / radios ---- */
+    --conf-border:#E3E9F3;
+    --conf-radius-sm:10px;
+    --conf-radius-md:14px;
+    --conf-radius-lg:18px;
+    --conf-radius-xl:22px;
+
+    /* ---- Sombra ---- */
+    --conf-shadow-sm:0 4px 12px rgba(15,23,42,.05);
+    --conf-shadow:0 10px 28px rgba(15,35,80,.08);
+    --conf-shadow-lg:0 22px 48px rgba(15,35,80,.14);
+
+    /* ---- Tipografía ---- */
+    --conf-font-display:'Sora',system-ui,sans-serif;
+    --conf-font-body:'Inter',system-ui,sans-serif;
+
+    /* ---- Transición ---- */
+    --conf-ease:cubic-bezier(.4,0,.2,1);
+
+}
+
+
+/*=====================================================
+RESET
+=====================================================*/
+
+.conf-module *,
+.conf-module *::before,
+.conf-module *::after{
+
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:var(--conf-font-body);
+
+}
+
+
+/*=====================================================
+ICONOGRAFÍA (SVG en línea — no depende de CDN externo)
+=====================================================*/
+
+.conf-module svg{
+
+    width:1em;
+    height:1em;
+    flex-shrink:0;
+    fill:none;
+    stroke:currentColor;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    vertical-align:-0.15em;
+
+}
+
+
+/*=====================================================
+CONTENEDOR PRINCIPAL
+=====================================================*/
+
+.conf-module{
+
+    width:100%;
+    max-width:1600px;
+    margin:0 auto;
+    padding:24px clamp(16px,3vw,32px) 60px;
+    display:flex;
+    flex-direction:column;
+    gap:22px;
+    background:var(--conf-background);
+    color:var(--conf-text);
+
+}
+
+.conf-module h1,
+.conf-module h2,
+.conf-module h3,
+.conf-module h4{
+
+    font-family:var(--conf-font-display);
+    letter-spacing:-.01em;
+
+}
+
+
+/*=====================================================
+ENCABEZADO DEL MÓDULO
+=====================================================*/
+
+.conf-module-header{
+
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+
+}
+
+.conf-module-header .conf-eyebrow{
+
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color:var(--conf-text-light);
+    font-size:13px;
+    font-weight:600;
+
+}
+
+.conf-module-header .conf-eyebrow svg{
+
+    color:var(--conf-primary);
+    font-size:15px;
+
+}
+
+.conf-module-title{
+
+    font-size:26px;
+    font-weight:800;
+    color:var(--conf-primary-dark);
+    margin-top:4px;
+
+}
+
+
+/*=====================================================
+DASHBOARD — LAYOUT GENERAL
+=====================================================*/
+
+.conf-dashboard{
+
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 360px;
+    gap:22px;
+    align-items:start;
+
+}
+
+
+/*=====================================================
+TARJETA RESUMEN (bloque izquierdo)
+=====================================================*/
+
+.conf-dashboard-resumen{
+
+    background:var(--conf-card);
+    border-radius:var(--conf-radius-xl);
+    border:1px solid var(--conf-border);
+    box-shadow:var(--conf-shadow);
+    overflow:hidden;
+
+}
+
+
+/*=====================================================
+CABECERAS DE TARJETA (genérico, reutilizado en todo el módulo)
+=====================================================*/
+
+.conf-card-header{
+
+    padding:22px 26px;
+    border-bottom:1px solid var(--conf-border);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:16px;
+    flex-wrap:wrap;
+
+}
+
+.conf-card-badge{
+
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 14px;
+    border-radius:999px;
+    background:var(--conf-info-bg);
+    color:var(--conf-primary);
+    font-size:11.5px;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    margin-bottom:10px;
+
+}
+
+.conf-card-header h2{
+
+    font-size:22px;
+    font-weight:700;
+    color:var(--conf-primary-dark);
+    margin-bottom:6px;
+
+}
+
+.conf-card-header p{
+
+    color:var(--conf-text-light);
+    line-height:1.55;
+    font-size:14px;
+    max-width:46ch;
+
+}
+
+
+/*=====================================================
+KPIs EJECUTIVOS
+=====================================================*/
+
+.conf-kpi-grid{
+
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:14px;
+    padding:22px;
+
+}
+
+.conf-kpi-card{
+
+    position:relative;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:16px 18px;
+    background:var(--conf-surface-soft);
+    border:1px solid var(--conf-border);
+    border-radius:var(--conf-radius-md);
+    overflow:hidden;
+    transition:transform .25s var(--conf-ease),box-shadow .25s var(--conf-ease);
+
+}
+
+.conf-kpi-card:hover{
+
+    transform:translateY(-3px);
+    box-shadow:var(--conf-shadow-sm);
+    background:var(--conf-white);
+
+}
+
+.conf-kpi-card::before{
+
+    content:"";
+    position:absolute;
+    left:0;
+    top:0;
+    width:4px;
+    height:100%;
+    background:var(--conf-primary-light);
+
+}
+
+.conf-kpi-icon{
+
+    width:44px;
+    height:44px;
+    flex-shrink:0;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    border-radius:12px;
+    font-size:19px;
+    background:var(--conf-info-bg);
+
+}
+
+.conf-kpi-info{
+
+    flex:1;
+    min-width:0;
+
+}
+
+.conf-kpi-info span{
+
+    display:block;
+    color:var(--conf-text-light);
+    font-size:12px;
+    font-weight:600;
+    margin-bottom:4px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+
+}
+
+.conf-kpi-info h3{
+
+    font-family:var(--conf-font-display);
+    font-size:22px;
+    font-weight:700;
+    color:var(--conf-primary-dark);
+    line-height:1.1;
+    margin-bottom:3px;
+    font-variant-numeric:tabular-nums;
+
+}
+
+.conf-kpi-info small{
+
+    color:var(--conf-text-muted);
+    font-size:11.5px;
+
+}
+
+/* Acentos por indicador */
+.conf-kpi-card:nth-child(1)::before{ background:#2563EB; }
+.conf-kpi-card:nth-child(1) .conf-kpi-icon{ background:#EAF2FF; color:#2563EB; }
+
+.conf-kpi-card:nth-child(2)::before{ background:#22C55E; }
+.conf-kpi-card:nth-child(2) .conf-kpi-icon{ background:#EAFBF1; color:#15803D; }
+
+.conf-kpi-card:nth-child(3)::before{ background:#F59E0B; }
+.conf-kpi-card:nth-child(3) .conf-kpi-icon{ background:#FFF8E8; color:#92400E; }
+
+.conf-kpi-card:nth-child(4)::before{ background:#8B5CF6; }
+.conf-kpi-card:nth-child(4) .conf-kpi-icon{ background:#F4EEFF; color:#6D28D9; }
+
+.conf-kpi-card:nth-child(5)::before{ background:#EF4444; }
+.conf-kpi-card:nth-child(5) .conf-kpi-icon{ background:#FFECEC; color:#B91C1C; }
+
+.conf-kpi-card:nth-child(6)::before{ background:#06B6D4; }
+.conf-kpi-card:nth-child(6) .conf-kpi-icon{ background:#ECFEFF; color:#0E7490; }
+
+
+/*=====================================================
+PANEL LATERAL (bloque derecho del dashboard)
+=====================================================*/
+
+.conf-dashboard-panel{
+
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+    position:sticky;
+    top:20px;
+
+}
+
+.conf-panel-box{
+
+    background:var(--conf-card);
+    border:1px solid var(--conf-border);
+    border-radius:var(--conf-radius-xl);
+    padding:22px;
+    box-shadow:var(--conf-shadow);
+
+}
+
+.conf-panel-box h3{
+
+    margin-bottom:14px;
+    color:var(--conf-primary-dark);
+    font-size:16px;
+    font-weight:700;
+
+}
+
+
+/*=====================================================
+ÍNDICE GENERAL — pieza distintiva del panel
+(FIX: el contenedor no tenía alto propio, así que el
+anillo se salía visualmente y tapaba "Avance del Inventario")
+=====================================================*/
+
+.conf-indice-wrap{
+
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    min-height:180px;
+    padding:14px 0 6px;
+    isolation:isolate;
+
+}
+
+.conf-indice-wrap::before{
+
+    content:"";
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    width:158px;
+    height:158px;
+    border-radius:50%;
+    background:conic-gradient(var(--conf-primary-light) 0deg,var(--conf-secondary) 140deg,var(--conf-border) 140deg 360deg);
+    -webkit-mask:radial-gradient(closest-side,transparent 74%,#000 75%);
+    mask:radial-gradient(closest-side,transparent 74%,#000 75%);
+    opacity:.9;
+    z-index:0;
+
+}
+
+.conf-indice-principal{
+
+    position:relative;
+    z-index:1;
+    font-family:var(--conf-font-display);
+    font-size:42px;
+    font-weight:800;
+    color:var(--conf-primary);
+    line-height:1;
+    font-variant-numeric:tabular-nums;
+
+}
+
+.conf-indice-estado{
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    width:100%;
+    min-height:38px;
+    border-radius:999px;
+    background:var(--conf-info-bg);
+    color:var(--conf-primary);
+    font-weight:700;
+    font-size:13px;
+    margin:14px 0 12px;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+
+}
+
+#mensajeGeneral{
+
+    color:var(--conf-text-light);
+    line-height:1.6;
+    font-size:13.5px;
+    text-align:center;
+
+}
+
+
+/*=====================================================
+AVANCE DEL INVENTARIO
+=====================================================*/
+
+.conf-progress-card{
+
+    margin-top:16px;
+
+}
+
+.conf-progress-info{
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:10px;
+    font-size:13px;
+
+}
+
+.conf-progress-info span{ color:var(--conf-text-light); }
+
+.conf-progress-info strong{
+
+    color:var(--conf-primary-dark);
+    font-size:15px;
+
+}
+
+
+/*=====================================================
+BARRAS DE PROGRESO (pista + relleno)
+FIX: antes ".conf-progress" y ".conf-progress-bar" tenían
+exactamente el mismo estilo (misma pista y mismo color de
+fondo), así que el relleno cambiaba de ancho por JS pero
+era invisible por estar pintado igual que su contenedor.
+Ahora la pista y el relleno son visualmente distintos y
+las mismas clases sirven tanto en el panel lateral como
+en la tabla de historial.
+=====================================================*/
+
+.conf-progress,
+.conf-progress-bar{
+
+    width:100%;
+    height:9px;
+    background:#E9EEF7;
+    border-radius:999px;
+    overflow:hidden;
+
+}
+
+.conf-progress-fill{
+
+    display:block;
+    height:100%;
+    width:0%;
+    border-radius:999px;
+    background:linear-gradient(90deg,#22C55E,#2563EB);
+    transition:width .5s var(--conf-ease);
+
+}
+
+
+/*=====================================================
+RESUMEN ANUAL
+=====================================================*/
+
+.conf-resumen-anual{
+
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+    margin-top:18px;
+
+}
+
+.conf-resumen-anual div{
+
+    background:var(--conf-surface-soft);
+    border:1px solid var(--conf-border);
+    border-radius:12px;
+    padding:12px 8px;
+    text-align:center;
+
+}
+
+.conf-resumen-anual small{
+
+    display:block;
+    color:var(--conf-text-light);
+    font-size:11px;
+    margin-bottom:6px;
+
+}
+
+.conf-resumen-anual strong{
+
+    font-family:var(--conf-font-display);
+    font-size:18px;
+    color:var(--conf-primary-dark);
+
+}
+
+
+/*=====================================================
+CONFIABILIDAD ACUMULADA
+=====================================================*/
+
+.conf-acumulada{
+
+    margin-top:20px;
+    padding-top:16px;
+    border-top:1px dashed var(--conf-border);
+    text-align:center;
+
+}
+
+.conf-acumulada span{
+
+    color:var(--conf-text-light);
+    font-size:13px;
+
+}
+
+.conf-acumulada h2{
+
+    margin-top:6px;
+    font-family:var(--conf-font-display);
+    color:var(--conf-primary);
+    font-size:30px;
+    font-weight:800;
+
+}
+
+
+/*=====================================================
+BOTONES — escala compacta y coherente
+=====================================================*/
+
+.conf-btn-primary,
+.conf-btn-secondary{
+
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    height:38px;
+    padding:0 16px;
+    border:none;
+    border-radius:var(--conf-radius-sm);
+    cursor:pointer;
+    font-size:13.5px;
+    font-weight:700;
+    font-family:var(--conf-font-body);
+    transition:transform .2s var(--conf-ease),box-shadow .2s var(--conf-ease),background .2s var(--conf-ease);
+    white-space:nowrap;
+
+}
+
+.conf-btn-primary{
+
+    width:100%;
+    color:var(--conf-white);
+    background:linear-gradient(135deg,var(--conf-primary),var(--conf-primary-light));
+    box-shadow:0 8px 18px rgba(0,57,166,.22);
+
+}
+
+.conf-btn-primary:hover{
+
+    transform:translateY(-2px);
+    box-shadow:0 12px 22px rgba(37,99,235,.28);
+
+}
+
+.conf-btn-secondary{
+
+    background:var(--conf-info-bg);
+    color:var(--conf-primary);
+
+}
+
+.conf-btn-secondary:hover{
+
+    background:var(--conf-primary);
+    color:var(--conf-white);
+    transform:translateY(-2px);
+
+}
+
+
+/*=====================================================
+DIAGNÓSTICO Y ALERTAS
+=====================================================*/
+
+.conf-analysis-grid{
+
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+
+}
+
+.conf-card{
+
+    background:var(--conf-card);
+    border:1px solid var(--conf-border);
+    border-radius:var(--conf-radius-xl);
+    overflow:hidden;
+    box-shadow:var(--conf-shadow);
+
+}
+
+.conf-card-body{
+
+    padding:24px 26px;
+
+}
+
+.conf-diagnostico-status{
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-width:150px;
+    height:36px;
+    padding:0 16px;
+    border-radius:999px;
+    background:var(--conf-info-bg);
+    color:var(--conf-primary);
+    font-size:12px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+
+}
+
+#diagnosticoTexto{
+
+    color:var(--conf-text-light);
+    line-height:1.75;
+    font-size:14.5px;
+
+}
+
+
+/*=====================================================
+ALERTAS
+FIX: el JS genera <div class="conf-alert warning|danger|success">
+(clases sueltas), mientras el CSS original solo tenía
+".conf-alert-item" + ".conf-alert-warning" etc. y nunca
+hacían match → las alertas salían sin ningún estilo.
+Se agrega el set de clases que el JS realmente usa.
+=====================================================*/
+
+.conf-alert-empty{
+
+    height:190px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    gap:14px;
+    color:var(--conf-text-muted);
+
+}
+
+.conf-alert-empty svg{
+
+    width:46px;
+    height:46px;
+    color:var(--conf-success);
+
+}
+
+.conf-alert-empty span{ font-size:14px; }
+
+.conf-alert-item,
+.conf-alert{
+
+    display:flex;
+    gap:13px;
+    align-items:flex-start;
+    padding:15px 16px;
+    margin-bottom:12px;
+    border-left:4px solid var(--conf-warning);
+    border-radius:var(--conf-radius-md);
+    background:var(--conf-surface-soft);
+    font-size:13.5px;
+    line-height:1.55;
+    color:var(--conf-text);
+
+}
+
+.conf-alert-item:last-child,
+.conf-alert:last-child{ margin-bottom:0; }
+
+.conf-alert-icon{
+
+    width:38px;
+    height:38px;
+    flex-shrink:0;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    border-radius:10px;
+    background:var(--conf-warning-bg);
+    color:var(--conf-warning);
+    font-size:18px;
+
+}
+
+.conf-alert-content{ flex:1; min-width:0; }
+
+.conf-alert-content h4{
+
+    margin-bottom:4px;
+    color:var(--conf-primary-dark);
+    font-size:14px;
+
+}
+
+.conf-alert-content p{
+
+    color:var(--conf-text-light);
+    line-height:1.55;
+    font-size:13px;
+
+}
+
+.conf-alert-success,
+.conf-alert.success{ border-left-color:var(--conf-success); background:var(--conf-success-bg); color:var(--conf-success-text); }
+.conf-alert-success .conf-alert-icon{ background:var(--conf-success-bg); color:var(--conf-success-text); }
+
+.conf-alert-warning,
+.conf-alert.warning{ border-left-color:#EAB308; background:var(--conf-warning-bg); color:var(--conf-warning-text); }
+.conf-alert-warning .conf-alert-icon{ background:var(--conf-warning-bg); color:var(--conf-warning-text); }
+
+.conf-alert-orange,
+.conf-alert.orange{ border-left-color:var(--conf-orange); background:var(--conf-orange-bg); color:var(--conf-orange-text); }
+.conf-alert-orange .conf-alert-icon{ background:var(--conf-orange-bg); color:var(--conf-orange-text); }
+
+.conf-alert-danger,
+.conf-alert.danger{ border-left-color:var(--conf-danger); background:var(--conf-danger-bg); color:var(--conf-danger-text); }
+.conf-alert-danger .conf-alert-icon{ background:var(--conf-danger-bg); color:var(--conf-danger-text); }
+
+
+/*=====================================================
+HISTORIAL
+=====================================================*/
+
+.conf-history{
+
+    background:var(--conf-card);
+    border:1px solid var(--conf-border);
+    border-radius:var(--conf-radius-xl);
+    overflow:hidden;
+    box-shadow:var(--conf-shadow);
+
+}
+
+.conf-history-actions{
+
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+
+}
+
+.conf-history-actions input{
+
+    width:230px;
+    height:38px;
+    padding:0 14px;
+    border:1px solid var(--conf-border);
+    border-radius:var(--conf-radius-sm);
+    outline:none;
+    font-size:13.5px;
+    background:var(--conf-surface-soft);
+    transition:border-color .2s,box-shadow .2s;
+
+}
+
+.conf-history-actions input::placeholder{ color:var(--conf-text-muted); }
+
+.conf-history-actions input:focus{
+
+    border-color:var(--conf-primary);
+    background:var(--conf-white);
+    box-shadow:0 0 0 4px rgba(0,57,166,.10);
+
+}
+
+.conf-history-actions .conf-btn-secondary{
+
+    height:38px;
+    padding:0 14px;
+
+}
+
+
+/*=====================================================
+TABLA
+=====================================================*/
+
+.conf-table-container{ overflow:auto; }
+
+.conf-table{
+
+    width:100%;
+    border-collapse:collapse;
+    min-width:820px;
+    table-layout:fixed;
+
+}
+
+.conf-table thead{ background:var(--conf-surface-soft); }
+
+.conf-table th{
+
+    padding:13px 16px;
+    text-align:left;
+    color:var(--conf-primary-dark);
+    border-bottom:1px solid var(--conf-border);
+    font-size:12px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    white-space:nowrap;
+
+}
+
+.conf-table td{
+
+    padding:13px 16px;
+    border-bottom:1px solid #EEF2F7;
+    color:var(--conf-text);
+    font-size:13.5px;
+    vertical-align:middle;
+    overflow:hidden;
+    text-overflow:ellipsis;
+
+}
+
+.conf-table tbody tr{ transition:background .2s var(--conf-ease); }
+.conf-table tbody tr:hover{ background:var(--conf-surface-soft); }
+
+/* Anchos por columna para un orden visual consistente
+   (la columna Inventario ya no se estira a lo ancho de la
+   tabla cuando el nombre es corto: ahora tiene un tope fijo
+   y el espacio sobrante se reparte entre Fecha/Usuario) */
+.conf-table th:nth-child(1),.conf-table td:nth-child(1){ width:64px; }
+.conf-table th:nth-child(2),.conf-table td:nth-child(2){ width:100px; }
+.conf-table th:nth-child(3),.conf-table td:nth-child(3){ width:200px; }
+.conf-table th:nth-child(4),.conf-table td:nth-child(4){ width:170px; }
+.conf-table th:nth-child(5),.conf-table td:nth-child(5){ width:90px; text-align:center; }
+.conf-table th:nth-child(6),.conf-table td:nth-child(6){ width:130px; text-align:center; }
+.conf-table th:nth-child(7),.conf-table td:nth-child(7){ width:110px; }
+.conf-table th:nth-child(8),.conf-table td:nth-child(8){ width:140px; }
+.conf-table th:nth-child(9),.conf-table td:nth-child(9){ width:120px; text-align:center; }
+
+.conf-table td strong{
+
+    color:var(--conf-text);
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+
+}
+
+.conf-table td small{
+
+    display:block;
+    color:var(--conf-text-light);
+    font-size:11.5px;
+    margin:2px 0 6px;
+
+}
+
+.conf-table td .conf-progress{ height:6px; }
+
+.conf-table-empty{
+
+    padding:56px !important;
+    text-align:center;
+
+}
+
+.conf-table-empty svg{
+
+    display:block;
+    margin:0 auto 12px;
+    width:52px;
+    height:52px;
+    color:#CBD5E1;
+
+}
+
+.conf-table-empty p{ color:var(--conf-text-muted); font-size:14px; }
+
+
+/*=====================================================
+ESTADOS (píldoras — usados en tabla, índice, diagnóstico
+y preview del modal)
+FIX: el JS asigna clases sueltas (excelente, buena, normal,
+critica, alarmante) sin el prefijo "conf-status"/"conf-estado",
+por lo que nunca coincidían con el CSS original. Se agrega
+la base ".conf-estado" y los modificadores sueltos.
+=====================================================*/
+
+.conf-status,
+.conf-estado,
+.conf-indice-estado,
+.conf-diagnostico-status,
+.conf-preview-status{
+
+    display:inline-flex;
+    justify-content:center;
+    align-items:center;
+    min-width:112px;
+    height:30px;
+    padding:0 14px;
+    border-radius:999px;
+    font-size:11.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+
+}
+
+.conf-module .excelente,
+.conf-status.excelente,
+.conf-excelente{ background:var(--conf-success-bg); color:var(--conf-success-text); }
+
+.conf-module .buena,
+.conf-status.buena,
+.conf-buena{ background:var(--conf-info-bg); color:var(--conf-info-text); }
+
+.conf-module .normal,
+.conf-status.normal,
+.conf-normal{ background:var(--conf-warning-bg); color:var(--conf-warning-text); }
+
+.conf-module .critica,
+.conf-status.critica,
+.conf-critica{ background:var(--conf-orange-bg); color:var(--conf-orange-text); }
+
+.conf-module .alarmante,
+.conf-status.alarmante,
+.conf-alarmante{ background:var(--conf-danger-bg); color:var(--conf-danger-text); }
+
+
+/*=====================================================
+ACCIONES DE TABLA — botones pequeños y centrados
+=====================================================*/
+
+.conf-table-actions{
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:6px;
+
+}
+
+.conf-table-btn,
+.conf-btn-table{
+
+    width:32px;
+    height:32px;
+    border:none;
+    border-radius:9px;
+    cursor:pointer;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:14px;
+    background:var(--conf-surface-soft);
+    color:var(--conf-text-light);
+    transition:transform .2s var(--conf-ease),background .2s,color .2s;
+
+}
+
+.conf-table-btn:hover,
+.conf-btn-table:hover{ transform:translateY(-2px); }
+
+.conf-table-btn.ver:hover,
+.conf-btn-table.ver:hover,
+.conf-btn-view:hover{ background:var(--conf-info); color:var(--conf-white); }
+
+.conf-table-btn.editar:hover,
+.conf-btn-table.editar:hover,
+.conf-btn-edit:hover{ background:var(--conf-warning); color:var(--conf-white); }
+
+.conf-table-btn.eliminar:hover,
+.conf-btn-table.eliminar:hover,
+.conf-btn-delete:hover{ background:var(--conf-danger); color:var(--conf-white); }
+
+
+/*=====================================================
+MODAL — NUEVO ANÁLISIS
+=====================================================*/
+
+.conf-modal-overlay{
+
+    position:fixed;
+    inset:0;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:20px;
+    background:rgba(5,21,46,.62);
+    backdrop-filter:blur(6px);
+    opacity:0;
+    visibility:hidden;
+    transition:opacity .3s var(--conf-ease),visibility .3s;
+    z-index:9999;
+
+}
+
+.conf-modal-overlay.active{
+
+    opacity:1;
+    visibility:visible;
+
+}
+
+.conf-modal{
+
+    width:100%;
+    max-width:1180px;
+    max-height:90vh;
+    background:var(--conf-white);
+    border-radius:var(--conf-radius-xl);
+    overflow:hidden;
+    box-shadow:var(--conf-shadow-lg);
+    transform:scale(.96);
+    transition:transform .3s var(--conf-ease);
+
+}
+
+.conf-modal-overlay.active .conf-modal{ transform:scale(1); }
+
+.conf-modal-content{
+
+    display:flex;
+    flex-direction:column;
+    height:100%;
+    max-height:90vh;
+
+}
+
+
+/*=====================================================
+MODAL — CABECERA
+=====================================================*/
+
+.conf-modal-header{
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:16px;
+    padding:24px 28px;
+    background:linear-gradient(135deg,var(--conf-primary-dark),var(--conf-primary));
+    flex-wrap:wrap;
+
+}
+
+.conf-modal-header .conf-card-badge{
+
+    background:rgba(255,255,255,.14);
+    color:var(--conf-secondary);
+
+}
+
+.conf-modal-header h2{
+
+    color:var(--conf-white);
+    margin:8px 0;
+    font-size:22px;
+    font-weight:700;
+
+}
+
+.conf-modal-header p{
+
+    color:rgba(255,255,255,.78);
+    line-height:1.6;
+    font-size:13.5px;
+    max-width:52ch;
+
+}
+
+.conf-btn-close{
+
+    width:38px;
+    height:38px;
+    flex-shrink:0;
+    border:none;
+    border-radius:11px;
+    cursor:pointer;
+    font-size:16px;
+    color:var(--conf-white);
+    background:rgba(255,255,255,.14);
+    transition:transform .25s var(--conf-ease),background .25s,color .25s;
+
+}
+
+.conf-btn-close:hover{
+
+    background:var(--conf-white);
+    color:var(--conf-primary);
+    transform:rotate(90deg);
+
+}
+
+
+/*=====================================================
+MODAL — CUERPO
+=====================================================*/
+
+.conf-modal-body{
+
+    flex:1;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 300px;
+    gap:22px;
+    padding:24px;
+    overflow:auto;
+    background:var(--conf-background);
+
+}
+
+.conf-modal-form{
+
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+
+}
+
+.conf-form-card{
+
+    background:var(--conf-white);
+    border:1px solid var(--conf-border);
+    border-radius:var(--conf-radius-lg);
+    overflow:hidden;
+    box-shadow:var(--conf-shadow-sm);
+
+}
+
+.conf-form-card h3{
+
+    padding:14px 20px;
+    background:var(--conf-surface-soft);
+    border-bottom:1px solid var(--conf-border);
+    color:var(--conf-primary-dark);
+    font-size:14.5px;
+    font-weight:700;
+
+}
+
+.conf-form-grid{
+
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:16px;
+    padding:20px;
+
+}
+
+.conf-form-group{
+
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    min-width:0;
+
+}
+
+.conf-form-group-full{ grid-column:1/-1; }
+
+.conf-form-group label{
+
+    color:var(--conf-text);
+    font-weight:600;
+    font-size:12.5px;
+
+}
+
+.conf-form-group input,
+.conf-form-group select{
+
+    height:42px;
+    padding:0 13px;
+    border:1px solid var(--conf-border);
+    border-radius:var(--conf-radius-sm);
+    outline:none;
+    font-size:13.5px;
+    background:var(--conf-white);
+    color:var(--conf-text);
+    transition:border-color .2s,box-shadow .2s;
+
+}
+
+.conf-form-group input:focus,
+.conf-form-group select:focus{
+
+    border-color:var(--conf-primary);
+    box-shadow:0 0 0 4px rgba(0,57,166,.10);
+
+}
+
+
+/*=====================================================
+MODAL — PANEL DE RESULTADOS
+=====================================================*/
+
+.conf-result-panel{
+
+    position:sticky;
+    top:0;
+    height:max-content;
+    background:var(--conf-white);
+    border:1px solid var(--conf-border);
+    border-radius:var(--conf-radius-lg);
+    padding:20px;
+    box-shadow:var(--conf-shadow);
+
+}
+
+.conf-result-panel h3{
+
+    margin-bottom:16px;
+    color:var(--conf-primary-dark);
+    font-size:16px;
+    font-weight:700;
+
+}
+
+.conf-result-item{
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    padding:12px 0;
+    border-bottom:1px solid #EEF2F7;
+
+}
+
+.conf-result-item:last-child{ border-bottom:none; }
+
+.conf-result-item span{
+
+    color:var(--conf-text-light);
+    font-size:13px;
+
+}
+
+.conf-result-item strong{
+
+    color:var(--conf-primary);
+    font-size:15.5px;
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+
+}
+
+.conf-preview-status{
+
+    display:flex;
+    width:100%;
+    min-width:0;
+    margin-top:18px;
+    padding:13px;
+    border-radius:var(--conf-radius-sm);
+    text-align:center;
+    font-weight:700;
+    font-size:13px;
+    background:var(--conf-info-bg);
+    color:var(--conf-primary);
+
+}
+
+
+/*=====================================================
+MODAL — PIE
+=====================================================*/
+
+.conf-modal-footer{
+
+    display:flex;
+    justify-content:flex-end;
+    gap:12px;
+    padding:18px 24px;
+    background:var(--conf-white);
+    border-top:1px solid var(--conf-border);
+
+}
+
+.conf-modal-footer .conf-btn-primary,
+.conf-modal-footer .conf-btn-secondary{
+
+    width:auto;
+    min-width:140px;
+
+}
+
+
+/*=====================================================
+SCROLL PERSONALIZADO
+=====================================================*/
+
+.conf-table-container::-webkit-scrollbar,
+.conf-modal-body::-webkit-scrollbar{
+
+    width:9px;
+    height:9px;
+
+}
+
+.conf-table-container::-webkit-scrollbar-track,
+.conf-modal-body::-webkit-scrollbar-track{
+
+    background:#F1F5F9;
+    border-radius:999px;
+
+}
+
+.conf-table-container::-webkit-scrollbar-thumb,
+.conf-modal-body::-webkit-scrollbar-thumb{
+
+    background:#C7D2FE;
+    border-radius:999px;
+
+}
+
+.conf-table-container::-webkit-scrollbar-thumb:hover,
+.conf-modal-body::-webkit-scrollbar-thumb:hover{
+
+    background:var(--conf-primary);
+
+}
+
+
+/*=====================================================
+TOAST
+=====================================================*/
+
+.conf-toast{
+
+    position:fixed;
+    right:22px;
+    bottom:22px;
+    min-width:300px;
+    max-width:400px;
+    padding:16px 20px;
+    border-radius:var(--conf-radius-md);
+    background:var(--conf-white);
+    display:flex;
+    align-items:center;
+    gap:13px;
+    box-shadow:var(--conf-shadow-lg);
+    z-index:99999;
+    animation:confToast .3s var(--conf-ease);
+    font-size:13.5px;
+
+}
+
+.conf-toast-success{ border-left:5px solid var(--conf-success); }
+.conf-toast-warning{ border-left:5px solid var(--conf-warning); }
+.conf-toast-error{ border-left:5px solid var(--conf-danger); }
+
+
+/*=====================================================
+LOADER
+=====================================================*/
+
+.conf-loader{
+
+    width:40px;
+    height:40px;
+    border:4px solid #E5E7EB;
+    border-top:4px solid var(--conf-primary);
+    border-radius:50%;
+    animation:confSpin .8s linear infinite;
+
+}
+
+
+/*=====================================================
+FOCO ACCESIBLE
+=====================================================*/
+
+.conf-btn-primary:focus-visible,
+.conf-btn-secondary:focus-visible,
+.conf-btn-close:focus-visible,
+.conf-table-btn:focus-visible,
+.conf-btn-table:focus-visible,
+.conf-history-actions input:focus-visible,
+.conf-form-group input:focus-visible,
+.conf-form-group select:focus-visible{
+
+    outline:none;
+    box-shadow:0 0 0 4px rgba(0,57,166,.22);
+
+}
+
+
+/*=====================================================
+ANIMACIONES
+=====================================================*/
+
+@keyframes confFadeUp{
+
+    from{ opacity:0; transform:translateY(16px); }
+    to{ opacity:1; transform:translateY(0); }
+
+}
+
+.conf-dashboard-resumen,
+.conf-panel-box,
+.conf-kpi-card,
+.conf-card,
+.conf-history{
+
+    animation:confFadeUp .4s var(--conf-ease);
+
+}
+
+@keyframes confSpin{ to{ transform:rotate(360deg); } }
+
+@keyframes confToast{
+
+    from{ opacity:0; transform:translateX(70px); }
+    to{ opacity:1; transform:translateX(0); }
+
+}
+
+@media (prefers-reduced-motion:reduce){
+
+    .conf-dashboard-resumen,
+    .conf-panel-box,
+    .conf-kpi-card,
+    .conf-card,
+    .conf-history,
+    .conf-btn-primary,
+    .conf-kpi-card:hover,
+    .conf-table-btn,
+    .conf-btn-table{
+
+        animation:none !important;
+        transition:none !important;
+
+    }
+
+}
+
+
+/*=====================================================
+UTILIDADES
+=====================================================*/
+
+.conf-hidden{ display:none !important; }
+
+.conf-center{
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+}
+
+.conf-text-success{ color:var(--conf-success) !important; }
+.conf-text-warning{ color:var(--conf-warning) !important; }
+.conf-text-danger{ color:var(--conf-danger) !important; }
+
+
+/*=====================================================
+RESPONSIVE
+=====================================================*/
+
+@media (max-width:1300px){
+
+    .conf-dashboard{ grid-template-columns:1fr; }
+
+    .conf-dashboard-panel{ position:static; }
+
+    .conf-modal-body{ grid-template-columns:1fr; }
+
+    .conf-result-panel{ position:static; }
+
+}
+
+@media (max-width:960px){
+
+    .conf-kpi-grid{ grid-template-columns:repeat(2,1fr); }
+
+    .conf-analysis-grid{ grid-template-columns:1fr; }
+
+    .conf-form-grid{ grid-template-columns:repeat(2,1fr); }
+
+}
+
+@media (max-width:768px){
+
+    .conf-module{ padding:18px 14px 48px; }
+
+    .conf-module-header{ flex-direction:column; align-items:flex-start; }
+
+    .conf-history-actions{ flex-direction:column; align-items:stretch; }
+
+    .conf-history-actions input{ width:100%; }
+
+    .conf-history-actions .conf-btn-secondary{ width:100%; }
+
+    .conf-card-header{ flex-direction:column; align-items:flex-start; }
+
+    .conf-table{ table-layout:auto; }
+
+}
+
+@media (max-width:576px){
+
+    .conf-kpi-grid{ grid-template-columns:1fr; }
+
+    .conf-form-grid{ grid-template-columns:1fr; }
+
+    .conf-indice-principal{ font-size:34px; }
+
+    .conf-indice-wrap{ min-height:150px; }
+
+    .conf-indice-wrap::before{ width:130px; height:130px; }
+
+    .conf-modal-header{ flex-direction:column; align-items:flex-start; }
+
+    .conf-resumen-anual{ grid-template-columns:1fr; }
+
+    .conf-modal-footer{ flex-direction:column-reverse; }
+
+    .conf-modal-footer .conf-btn-primary,
+    .conf-modal-footer .conf-btn-secondary{ width:100%; }
+
+}

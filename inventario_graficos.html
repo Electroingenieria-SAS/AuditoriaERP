@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de Inventario</title>
+
+<!-- ESTILOS -->
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/inventario.css">
+<link rel="stylesheet" href="inventario_graficos.css">
+<link rel="stylesheet" href="css/notificaciones-premium.css">
+
+</head>
+<body>
+
+<div class="module-container graficos-page" id="reporteDashboard">
+
+  <!-- ===================================== -->
+  <!-- HEADER -->
+  <!-- ===================================== -->
+
+  <div class="module-header graficos-header">
+
+    <div>
+      <h2>📊 Dashboard de Inventario</h2>
+      <p>Resumen ejecutivo del avance y exactitud del inventario</p>
+    </div>
+
+    <div class="button-group">
+
+      <button class="btn-secondary" onclick="window.location.href='dashboard.html'">
+        ⬅ Volver a Inventario
+      </button>
+
+      <button class="btn-primary" onclick="window.actualizarDashboardInventario()">
+        🔄 Actualizar
+      </button>
+
+      <button class="btn-success" id="btnDescargarPDF" onclick="window.descargarDashboardPDF()">
+        📄 Descargar PDF
+      </button>
+
+    </div>
+
+  </div>
+
+  <!-- ===================================== -->
+  <!-- KPIS PRINCIPALES -->
+  <!-- ===================================== -->
+
+  <div class="kpi-grid kpi-grid-graficos">
+
+    <div class="kpi-card">
+      <span>Total Ítems Cargados</span>
+      <h3 id="dashTotalCargados">0</h3>
+    </div>
+
+    <div class="kpi-card">
+      <span>Ítems Inventariados</span>
+      <h3 id="dashInventariados">0</h3>
+    </div>
+
+    <div class="kpi-card">
+      <span>Pendientes por Contar</span>
+      <h3 id="dashPendientes">0</h3>
+    </div>
+
+    <div class="kpi-card">
+      <span>% Avance Conteo</span>
+      <h3 id="dashAvance">0%</h3>
+    </div>
+
+    <div class="kpi-card">
+      <span>Exactos (OK)</span>
+      <h3 id="dashExactos" class="kpi-ok">0</h3>
+    </div>
+
+    <div class="kpi-card">
+      <span>Faltantes</span>
+      <h3 id="dashFaltantes" class="kpi-faltante">0</h3>
+    </div>
+
+    <div class="kpi-card">
+      <span>Sobrantes</span>
+      <h3 id="dashSobrantes" class="kpi-sobrante">0</h3>
+    </div>
+
+    <div class="kpi-card kpi-card-highlight">
+      <span>% Exactitud</span>
+      <h3 id="dashExactitud">0%</h3>
+    </div>
+
+  </div>
+
+  <!-- ===================================== -->
+  <!-- GRAFICAS -->
+  <!-- ===================================== -->
+
+  <div class="dashboard-charts-grid dashboard-charts-grid-compact">
+
+    <div class="module-card dashboard-chart-card">
+      <h3>Avance de Conteo</h3>
+      <div class="chart-box chart-box-donut">
+        <canvas id="chartAvanceInventario"></canvas>
+      </div>
+    </div>
+
+    <div class="module-card dashboard-chart-card">
+      <h3>Resultado de Conteos</h3>
+      <div class="chart-box chart-box-bar">
+        <canvas id="chartResultadosInventario"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===================================== -->
+  <!-- BITACORA -->
+  <!-- ===================================== -->
+
+  <div class="module-card dashboard-log-card">
+
+    <div class="table-header">
+      <h3>🕓 Bitácora de Conteos</h3>
+    </div>
+
+    <div class="table-container table-container-compact">
+
+      <table>
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Producto</th>
+            <th>Sistema</th>
+            <th>Físico</th>
+            <th>Diferencia</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody id="dashboardHistorialBody"></tbody>
+      </table>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ===================================== -->
+<!-- LIBRERIAS EXTERNAS (CDN) -->
+<!-- ===================================== -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- ===================================== -->
+<!-- SCRIPTS DEL SISTEMA -->
+<!-- ===================================== -->
+<script src="js/supabaseClient.js"></script>
+<script src="js/notificaciones.js"></script>
+<script src="inventario_graficos.js"></script>
+
+</body>
+</html>
