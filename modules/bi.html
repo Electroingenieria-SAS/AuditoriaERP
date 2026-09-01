@@ -1,184 +1,199 @@
-<!DOCTYPE html>
-<html lang="es">
+<!-- ======================================================= -->
+<!-- MÓDULO BI INTELIGENTE & ANALÍTICA DE DATOS (SPA)        -->
+<!-- ======================================================= -->
+<link rel="stylesheet" href="css/bi.css">
 
-<head>
+<div class="bi-module-container">
 
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- HEADER HERO -->
+  <header class="bi-hero-header">
+    <div class="bi-hero-content">
+      <div class="bi-chip">
+        <span class="bi-chip-dot"></span> AUDIT SYSTEM // BUSINESS INTELLIGENCE
+      </div>
+      <h2>📊 BI Inteligente & Analítica de Datos</h2>
+      <p>Cargue cualquier archivo Excel para generar cuadros de mando, distribuciones, análisis de tendencias y rankings de forma automática.</p>
+    </div>
+    <div class="bi-hero-action">
+      <label for="excelBI" class="btn-bi-header-upload">
+        <span class="btn-upload-icon">📁</span>
+        <span class="btn-upload-text">Cargar Excel</span>
+      </label>
+      <input type="file" id="excelBI" accept=".xlsx,.xls" style="display:none;">
+    </div>
+  </header>
 
-    <title>BI Inteligente</title>
+  <!-- PANEL DE CARGA DRAG & DROP -->
+  <section class="bi-card bi-upload-card" id="biDropZone">
+    <div class="upload-dropzone">
+      <div class="dropzone-icon">📥</div>
+      <div class="dropzone-text">
+        <h4>Arrastre y suelte su archivo Excel aquí</h4>
+        <p>O haga clic en el botón superior para explorar en su equipo (.xlsx, .xls)</p>
+      </div>
+      <div class="dropzone-badge" id="biFileStatus">Ningún archivo cargado</div>
+    </div>
+  </section>
 
-    <!-- ESTILOS -->
-    <link rel="stylesheet" href="../css/bi.css">
-    <link rel="stylesheet" href="../css/notificaciones-premium.css">
+  <!-- KPIS PRINCIPALES -->
+  <section class="bi-kpi-grid">
+    <div class="bi-kpi-card">
+      <div class="bi-kpi-head">
+        <span>📄 Registros Totales</span>
+      </div>
+      <h3 id="kpiRegistros">0</h3>
+      <small>Filas procesadas</small>
+    </div>
 
-    <!-- DATATABLES CSS -->
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <div class="bi-kpi-card">
+      <div class="bi-kpi-head">
+        <span>🔢 Total Métrica</span>
+      </div>
+      <h3 id="kpiTotal">0</h3>
+      <small>Suma agregada</small>
+    </div>
 
-</head>
+    <div class="bi-kpi-card">
+      <div class="bi-kpi-head">
+        <span>📈 Promedio</span>
+      </div>
+      <h3 id="kpiPromedio">0</h3>
+      <small>Media aritmética</small>
+    </div>
 
-<body>
+    <div class="bi-kpi-card">
+      <div class="bi-kpi-head">
+        <span>🏆 Valor Máximo</span>
+      </div>
+      <h3 id="kpiMaximo">0</h3>
+      <small>Pico más alto</small>
+    </div>
+  </section>
 
-    <div class="bi-container">
+  <!-- DASHBOARD GRID: GRÁFICOS Y FILTROS -->
+  <div class="bi-dashboard-grid">
 
-        <!-- ==========================================
-             HEADER
-        =========================================== -->
-        <div class="bi-header">
+    <!-- COLUMNA PRINCIPAL: GRÁFICOS -->
+    <div class="bi-main-charts">
 
+      <!-- GRÁFICO PRINCIPAL -->
+      <div class="bi-card">
+        <div class="bi-card-head-flex">
+          <div class="bi-card-title-wrap">
+            <span class="bi-section-icon">📊</span>
             <div>
-                <h1>📊 BI Inteligente</h1>
-                <p>
-                    Cargue un archivo Excel y genere dashboards automáticamente.
-                </p>
+              <h3>Distribución & Visualización Principal</h3>
+              <span class="bi-subtitle">Seleccione dimensiones, métricas y tipo de gráfico</span>
+            </div>
+          </div>
+
+          <div class="bi-controls-toolbar">
+            <div class="bi-control-group">
+              <label for="dimension">Dimensión (Eje X):</label>
+              <select id="dimension" class="bi-select"></select>
             </div>
 
-            <input
-                type="file"
-                id="excelBI"
-                accept=".xlsx,.xls"
-            >
+            <div class="bi-control-group">
+              <label for="metrica">Métrica (Eje Y):</label>
+              <select id="metrica" class="bi-select"></select>
+            </div>
 
+            <div class="bi-control-group">
+              <label for="tipoGrafico">Tipo:</label>
+              <select id="tipoGrafico" class="bi-select">
+                <option value="bar">Barras</option>
+                <option value="line">Líneas</option>
+                <option value="pie">Pastel</option>
+                <option value="doughnut">Dona</option>
+              </select>
+            </div>
+
+            <button id="btnGenerar" type="button" class="btn-bi-primary">
+              ⚡ Generar
+            </button>
+          </div>
         </div>
 
-        <!-- ==========================================
-             KPIS
-        =========================================== -->
-        <div class="kpis">
+        <div class="bi-chart-container-main">
+          <canvas id="graficoPrincipal"></canvas>
+        </div>
+      </div>
 
-            <div class="card-kpi">
-                <h3>Registros</h3>
-                <span id="kpiRegistros">0</span>
-            </div>
-
-            <div class="card-kpi">
-                <h3>Total</h3>
-                <span id="kpiTotal">0</span>
-            </div>
-
-            <div class="card-kpi">
-                <h3>Promedio</h3>
-                <span id="kpiPromedio">0</span>
-            </div>
-
-            <div class="card-kpi">
-                <h3>Máximo</h3>
-                <span id="kpiMaximo">0</span>
-            </div>
-
+      <!-- GRÁFICOS SECUNDARIOS (TOP 10 & TENDENCIAS) -->
+      <div class="bi-secondary-grid">
+        <div class="bi-card">
+          <div class="bi-card-head-simple">
+            <span class="bi-section-icon">🏆</span>
+            <h3>Top 10 Elementos Destacados</h3>
+          </div>
+          <div class="bi-chart-container-secondary">
+            <canvas id="graficoTop"></canvas>
+          </div>
         </div>
 
-        <!-- ==========================================
-             DASHBOARD
-        =========================================== -->
-        <div class="dashboard-grid">
-
-            <!-- PANELES DE GRAFICOS -->
-            <div class="panel-graficos">
-
-                <!-- GRAFICO PRINCIPAL -->
-                <div class="grafico-card">
-
-                    <h3>Gráfico Principal</h3>
-
-                    <div class="configuracion-grafico">
-
-                        <select id="dimension"></select>
-
-                        <select id="metrica"></select>
-
-                        <select id="tipoGrafico">
-                            <option value="bar">Barras</option>
-                            <option value="line">Líneas</option>
-                            <option value="pie">Pastel</option>
-                            <option value="doughnut">Dona</option>
-                        </select>
-
-                        <button id="btnGenerar">
-                            Generar Dashboard
-                        </button>
-
-                    </div>
-
-                    <canvas id="graficoPrincipal"></canvas>
-
-                </div>
-
-                <!-- TOP 10 -->
-                <div class="grafico-card">
-                    <h3>Top 10</h3>
-                    <canvas id="graficoTop"></canvas>
-                </div>
-
-                <!-- TENDENCIA -->
-                <div class="grafico-card">
-                    <h3>Tendencia</h3>
-                    <canvas id="graficoLinea"></canvas>
-                </div>
-
-            </div>
-
-            <!-- PANEL FILTROS -->
-            <div class="panel-filtros">
-
-                <h3>Filtros</h3>
-
-                <label>Producto</label>
-                <select id="filtroProducto">
-                    <option>Todos</option>
-                </select>
-
-                <label>Sede</label>
-                <select id="filtroSede">
-                    <option>Todas</option>
-                </select>
-
-                <label>Estado</label>
-                <select id="filtroEstado">
-                    <option>Todos</option>
-                </select>
-
-                <button id="btnAplicar">
-                    Aplicar Filtros
-                </button>
-
-            </div>
-
+        <div class="bi-card">
+          <div class="bi-card-head-simple">
+            <span class="bi-section-icon">📉</span>
+            <h3>Tendencia & Evolución Temporal</h3>
+          </div>
+          <div class="bi-chart-container-secondary">
+            <canvas id="graficoLinea"></canvas>
+          </div>
         </div>
-
-        <!-- ==========================================
-             TABLA DE DATOS
-        =========================================== -->
-        <div class="tabla-card">
-
-            <h3>Datos Cargados</h3>
-
-            <table
-                id="tablaBI"
-                class="display"
-                style="width:100%"
-            ></table>
-
-        </div>
+      </div>
 
     </div>
 
-    <!-- ==========================================
-         LIBRERIAS EXTERNAS (CDN)
-    =========================================== -->
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- COLUMNA LATERAL: PANEL DE FILTROS -->
+    <aside class="bi-sidebar-filters">
+      <div class="bi-card bi-filter-card">
+        <div class="bi-card-head-simple">
+          <span class="bi-section-icon">🔍</span>
+          <h3>Filtros de Segmentación</h3>
+        </div>
 
-    <!-- NOTIFICACIONES -->
-    <script src="../js/notificaciones.js"></script>
+        <div class="bi-filter-body">
+          <div class="bi-form-field">
+            <label for="filtroColumna1" id="labelFiltro1">Segmento Principal</label>
+            <select id="filtroColumna1" class="bi-select-full">
+              <option value="">(Todos)</option>
+            </select>
+          </div>
 
-    <!-- LOGICA BI -->
-    <script src="../js/bi-upload.js"></script>
-    <script src="../js/bi-kpis.js"></script>
-    <script src="../js/bi-main.js"></script>
+          <div class="bi-form-field">
+            <label for="filtroColumna2" id="labelFiltro2">Segmento Secundario</label>
+            <select id="filtroColumna2" class="bi-select-full">
+              <option value="">(Todos)</option>
+            </select>
+          </div>
 
-</body>
+          <div class="bi-filter-actions">
+            <button id="btnAplicar" type="button" class="btn-bi-filter-apply">
+              ✓ Aplicar Filtros
+            </button>
+            <button id="btnResetFiltros" type="button" class="btn-bi-filter-reset">
+              ✕ Restablecer
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
 
-</html>
+  </div>
+
+  <!-- TABLA DE DATOS DETALLADOS -->
+  <section class="bi-card bi-table-card">
+    <div class="bi-card-head-simple">
+      <span class="bi-section-icon">📋</span>
+      <div>
+        <h3>Explorador de Datos Tabulares</h3>
+        <span class="bi-subtitle">Búsqueda rápida, ordenamiento dinámico y paginación</span>
+      </div>
+    </div>
+
+    <div class="bi-table-wrapper">
+      <table id="tablaBI" class="display responsive nowrap bi-custom-table" style="width:100%"></table>
+    </div>
+  </section>
+
+</div>

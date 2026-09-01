@@ -283,6 +283,28 @@ tbody tr:hover {
   font-family: 'JetBrains Mono', monospace;
 }
 
+.badge-faltante-txt {
+  color: #f97316;
+  font-weight: 700;
+}
+
+.badge-sobrante-txt {
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.badge-danado-txt {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.table-empty-cell {
+  text-align: center;
+  padding: 25px;
+  color: #94a3b8;
+  font-style: italic;
+}
+
 /* =========================
    RESPONSIVE
 ========================= */

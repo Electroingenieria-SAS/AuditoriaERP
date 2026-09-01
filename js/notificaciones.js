@@ -1,10 +1,22 @@
-// =====================================================
-// SISTEMA DE NOTIFICACIONES PREMIUM - PERSISTENCIA REAL
-// =====================================================
+/**
+ * ====================================================================
+ * SISTEMA CENTRALIZADO & PERSISTENTE DE NOTIFICACIONES MULTI-USUARIO
+ * ====================================================================
+ * Versión: 2.7.0 (Realtime WebSockets + Persistencia en Base de Datos)
+ * 
+ * Características:
+ *  - Persistencia diferida en tabla `notificaciones` por `usuario_destino`.
+ *  - Sincronización en vivo vía Supabase Realtime Channels.
+ *  - Aislamiento 100% independiente de estado de lectura/borrado por usuario.
+ *  - Sintetizador nativo Web Audio API (4 perfiles armónicos).
+ *  - API pública unificada: window.Notif, window.crearNotificacion, window.mostrarNotificacion.
+ */
 
-(function(){
+(function () {
+  'use strict';
 
-  const MAX_HISTORIAL = 50;
+  const MAX_HISTORIAL_MEMORIA = 50;
+  const DURACION_TOAST_MS = 4500;
 
   const ICONOS = {
     success: '✅',
@@ -14,378 +26,568 @@
   };
 
   const TITULOS_DEFECTO = {
-    success: '¡Listo!',
-    error: 'Ocurrió un error',
-    warning: 'Atención',
-    info: 'Información'
+    success: 'Operación Exitosa',
+    error: 'Alerta del Sistema',
+    warning: 'Atención Requerida',
+    info: 'Notificación'
   };
 
-  const DURACION_MS = 4200;
+  let notificacionesCache = [];
+  let realtimeChannel = null;
 
-  // 1. OBTENER CLAVE SEGURA DEL USUARIO ACTUAL
-  function obtenerClaveUsuario() {
-    let user = 'general';
+  // ==================================================================
+  // 1. IDENTIDAD DE USUARIO & AISLAMIENTO
+  // ==================================================================
+  function obtenerUsuarioActual() {
     try {
       if (window.usuarioLogueado && window.usuarioLogueado.usuario) {
-        user = String(window.usuarioLogueado.usuario).toLowerCase().trim();
-      } else {
-        const sesion = JSON.parse(localStorage.getItem('usuarioLogueado') || '{}');
-        if (sesion.usuario) {
-          user = String(sesion.usuario).toLowerCase().trim();
-        }
+        return String(window.usuarioLogueado.usuario).toLowerCase().trim();
       }
-    } catch {
-      user = 'general';
+      const sesion = JSON.parse(localStorage.getItem('usuarioLogueado') || '{}');
+      if (sesion.usuario) {
+        return String(sesion.usuario).toLowerCase().trim();
+      }
+    } catch (_) {
+      // Ignorar error de parsing
     }
-    return `erp_notif_${user}`;
+    return 'general';
   }
 
-  // 2. MIGRACIÓN / LIMPIEZA DE BASURAS ANTIGUAS
-  function limpiarCacheAntigua() {
-    try {
-      // Elimina la clave global anterior si quedó huérfana
-      if (localStorage.getItem('notificaciones_erp')) {
-        localStorage.removeItem('notificaciones_erp');
-      }
-    } catch (e) {
-      console.warn('Error limpiando caché vieja:', e);
-    }
+  function obtenerClaveStorage() {
+    const usuario = obtenerUsuarioActual();
+    return `erp_notif_cache_${usuario}`;
   }
 
-  // 3. OBTENER Y GUARDAR HISTORIAL
-  function obtenerHistorial() {
+  function obtenerCacheLocal() {
     try {
-      const key = obtenerClaveUsuario();
+      const key = obtenerClaveStorage();
       return JSON.parse(localStorage.getItem(key)) || [];
-    } catch {
+    } catch (_) {
       return [];
     }
   }
 
-  function guardarHistorial(lista) {
+  function guardarCacheLocal(lista) {
     try {
-      const key = obtenerClaveUsuario();
-      localStorage.setItem(key, JSON.stringify(lista.slice(0, MAX_HISTORIAL)));
+      const key = obtenerClaveStorage();
+      localStorage.setItem(key, JSON.stringify(lista.slice(0, MAX_HISTORIAL_MEMORIA)));
     } catch (e) {
-      console.warn('No se pudo guardar el historial:', e);
+      console.warn('No se pudo persistir caché local de notificaciones:', e);
     }
   }
 
-  // 4. MOTOR DE AUDIO NATIVO
+  // ==================================================================
+  // 2. SINTETIZADOR NATIVO WEB AUDIO API
+  // ==================================================================
   let audioCtx = null;
-  function reproducirSonidoNotificacion(tipo = 'info') {
+
+  function reproducirSonido(tipo = 'info') {
     try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-      if (!audioCtx) audioCtx = new AudioContext();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (window.ERP_CONFIG && window.ERP_CONFIG.AUDIO_NOTIFICATIONS === false) return;
+
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+
+      if (!audioCtx) {
+        audioCtx = new AudioContextClass();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
 
       const ahora = audioCtx.currentTime;
-      const configSonido = {
+      const tonos = {
         success: [
-          { f: 523.25, d: 0.08, t: 0 },
-          { f: 659.25, d: 0.12, t: 0.08 },
-          { f: 1046.50, d: 0.25, t: 0.18 }
+          { f: 523.25, d: 0.08, t: 0 },    // C5
+          { f: 659.25, d: 0.10, t: 0.07 }, // E5
+          { f: 1046.50, d: 0.22, t: 0.15 } // C6
         ],
         warning: [
-          { f: 440.00, d: 0.12, t: 0 },
-          { f: 554.37, d: 0.20, t: 0.10 }
+          { f: 440.00, d: 0.12, t: 0 },    // A4
+          { f: 554.37, d: 0.20, t: 0.10 }  // C#5
         ],
         error: [
-          { f: 311.13, d: 0.15, t: 0 },
-          { f: 233.08, d: 0.28, t: 0.12 }
+          { f: 311.13, d: 0.14, t: 0 },    // Eb4
+          { f: 233.08, d: 0.26, t: 0.12 }  // Bb3
         ],
         info: [
-          { f: 587.33, d: 0.09, t: 0 },
-          { f: 880.00, d: 0.18, t: 0.08 }
+          { f: 587.33, d: 0.09, t: 0 },    // D5
+          { f: 880.00, d: 0.18, t: 0.08 }  // A5
         ]
       };
 
-      const notas = configSonido[tipo] || configSonido.info;
-      notas.forEach(nota => {
+      const notas = tonos[tipo] || tonos.info;
+      notas.forEach(n => {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = tipo === 'error' ? 'sawtooth' : 'sine';
-        osc.frequency.setValueAtTime(nota.f, ahora + nota.t);
-        gain.gain.setValueAtTime(0.001, ahora + nota.t);
-        gain.gain.exponentialRampToValueAtTime(0.18, ahora + nota.t + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ahora + nota.t + nota.d);
+
+        osc.type = tipo === 'error' ? 'sawtooth' : tipo === 'warning' ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(n.f, ahora + n.t);
+
+        gain.gain.setValueAtTime(0.0001, ahora + n.t);
+        gain.gain.exponentialRampToValueAtTime(0.15, ahora + n.t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ahora + n.t + n.d);
+
         osc.connect(gain);
         gain.connect(audioCtx.destination);
-        osc.start(ahora + nota.t);
-        osc.stop(ahora + nota.t + nota.d);
+
+        osc.start(ahora + n.t);
+        osc.stop(ahora + n.t + n.d);
       });
     } catch (e) {
-      console.warn('Audio no disponible:', e);
+      // Audio autoplay policy handled silently
     }
   }
 
-  // 5. INYECTAR CONTENEDORES SI NO EXISTEN
-  function asegurarContenedores(){
-    if(!document.getElementById('notifStack')){
+  // ==================================================================
+  // 3. INYECCIÓN DEL DOM (STACK & MODALES ASÍNCRONOS)
+  // ==================================================================
+  function asegurarContenedores() {
+    if (!document.getElementById('notifStack')) {
       const stack = document.createElement('div');
       stack.id = 'notifStack';
+      stack.className = 'notif-stack-container';
       document.body.appendChild(stack);
     }
 
-    if(!document.getElementById('notifModalOverlay')){
+    if (!document.getElementById('notifModalOverlay')) {
       const overlay = document.createElement('div');
       overlay.id = 'notifModalOverlay';
-      overlay.innerHTML =
-        '<div class="notif-modal-box" id="notifModalBox">' +
-          '<div class="notif-modal-icono" id="notifModalIcono">❓</div>' +
-          '<h2 id="notifModalTitulo">Confirmar</h2>' +
-          '<p id="notifModalMensaje"></p>' +
-          '<div id="notifModalCampoWrap"></div>' +
-          '<div class="notif-modal-botones">' +
-            '<button class="notif-btn-cancelar" id="notifBtnCancelar" type="button">Cancelar</button>' +
-            '<button class="notif-btn-aceptar" id="notifBtnAceptar" type="button">Aceptar</button>' +
-          '</div>' +
-        '</div>';
+      overlay.className = 'notif-modal-overlay';
+      overlay.innerHTML = `
+        <div class="notif-modal-box" id="notifModalBox">
+          <div class="notif-modal-icono" id="notifModalIcono">❓</div>
+          <h2 id="notifModalTitulo" class="notif-modal-titulo">Confirmación</h2>
+          <p id="notifModalMensaje" class="notif-modal-mensaje"></p>
+          <div id="notifModalCampoWrap" class="notif-modal-campo-wrap"></div>
+          <div class="notif-modal-botones">
+            <button class="notif-btn-cancelar" id="notifBtnCancelar" type="button">Cancelar</button>
+            <button class="notif-btn-aceptar" id="notifBtnAceptar" type="button">Aceptar</button>
+          </div>
+        </div>`;
       document.body.appendChild(overlay);
     }
   }
 
-  // 6. CONTADOR DE LA CAMPANA (SOLO NO LEÍDAS)
-  window.actualizarContadorCampana = function(){
-    const contador = document.getElementById('contadorNotificaciones') || document.getElementById('notificacionesCount');
-    if(!contador) return;
-
-    const lista = obtenerHistorial();
-    const noLeidas = lista.filter(n => !n.leida).length;
-
-    contador.innerText = noLeidas;
-    if (noLeidas > 0) {
-      contador.style.display = 'inline-flex';
-    } else {
-      contador.style.display = 'none';
-    }
-  };
-
-  // 7. TOAST VISUAL
-  function toast(tipo, mensaje, titulo){
+  // ==================================================================
+  // 4. RENDERIZADOR DE TOASTS FLOTANTES
+  // ==================================================================
+  function mostrarToast(tipo = 'info', mensaje = '', titulo = '') {
     asegurarContenedores();
-    reproducirSonidoNotificacion(tipo);
+    reproducirSonido(tipo);
 
     const stack = document.getElementById('notifStack');
-    if(!stack) return;
+    if (!stack) return;
 
-    const el = document.createElement('div');
-    el.className = 'notif-toast notif-' + tipo;
-    el.innerHTML =
-      '<div class="notif-icono">' + (ICONOS[tipo] || 'ℹ️') + '</div>' +
-      '<div class="notif-texto">' +
-        '<div class="notif-titulo">' + (titulo || TITULOS_DEFECTO[tipo] || 'Notificación') + '</div>' +
-        '<div class="notif-mensaje"></div>' +
-      '</div>' +
-      '<button class="notif-cerrar" type="button">✕</button>' +
-      '<div class="notif-barra" style="animation-duration:' + DURACION_MS + 'ms"></div>';
+    const toastEl = document.createElement('div');
+    toastEl.className = `notif-toast notif-${tipo}`;
+    toastEl.setAttribute('role', 'alert');
 
-    el.querySelector('.notif-mensaje').innerText = mensaje || '';
-    stack.appendChild(el);
+    const tituloTexto = titulo || TITULOS_DEFECTO[tipo] || 'Notificación';
+    const iconoTexto = ICONOS[tipo] || 'ℹ️';
 
-    function cerrar(){
-      el.classList.add('notif-out');
-      setTimeout(function(){
-        if(el.parentNode) el.parentNode.removeChild(el);
+    toastEl.innerHTML = `
+      <div class="notif-icono">${iconoTexto}</div>
+      <div class="notif-texto">
+        <div class="notif-titulo">${tituloTexto}</div>
+        <div class="notif-mensaje"></div>
+      </div>
+      <button class="notif-cerrar" type="button" aria-label="Cerrar notificación">✕</button>
+      <div class="notif-barra" style="animation-duration: ${DURACION_TOAST_MS}ms;"></div>
+    `;
+
+    toastEl.querySelector('.notif-mensaje').textContent = mensaje;
+    stack.appendChild(toastEl);
+
+    function cerrar() {
+      toastEl.classList.add('notif-out');
+      setTimeout(() => {
+        if (toastEl.parentNode) toastEl.parentNode.removeChild(toastEl);
       }, 350);
     }
 
-    el.querySelector('.notif-cerrar').addEventListener('click', cerrar);
-    const timeoutId = setTimeout(cerrar, DURACION_MS);
+    toastEl.querySelector('.notif-cerrar').addEventListener('click', cerrar);
+    let timeoutId = setTimeout(cerrar, DURACION_TOAST_MS);
 
-    el.addEventListener('mouseenter', function(){
+    toastEl.addEventListener('mouseenter', () => {
       clearTimeout(timeoutId);
-      const barra = el.querySelector('.notif-barra');
-      if(barra) barra.style.animationPlayState = 'paused';
+      const barra = toastEl.querySelector('.notif-barra');
+      if (barra) barra.style.animationPlayState = 'paused';
+    });
+
+    toastEl.addEventListener('mouseleave', () => {
+      const barra = toastEl.querySelector('.notif-barra');
+      if (barra) barra.style.animationPlayState = 'running';
+      timeoutId = setTimeout(cerrar, 2000);
     });
   }
 
-  // 8. CREAR NOTIFICACIÓN (GLOBAL)
-  window.crearNotificacion = function(mensaje, tipo = 'info', titulo = ''){
-    titulo = titulo || (tipo === 'success' ? 'Éxito' : tipo === 'error' ? 'Error' : 'Notificación del Sistema');
+  // ==================================================================
+  // 5. CARGA DIFERIDA DE NOTIFICACIONES DESDE SUPABASE (BASE DE DATOS)
+  // ==================================================================
+  window.cargarNotificacionesBD = async function () {
+    const usuarioActual = obtenerUsuarioActual();
+
+    // 1. Mostrar estado en caché de inmediato (Optimistic Load)
+    notificacionesCache = obtenerCacheLocal();
+    window.actualizarContadorCampana();
+    window.renderNotificaciones();
+
+    if (!window.supabaseClient) return;
 
     try {
-      const lista = obtenerHistorial();
-      const nueva = {
-        id: Date.now() + Math.floor(Math.random() * 1000),
-        titulo: titulo,
-        mensaje: String(mensaje || ''),
-        tipo: tipo,
-        leida: false,
-        fecha: new Date().toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })
-      };
+      // 2. Consulta directa a PostgreSQL por usuario destinatario
+      const { data, error } = await window.supabaseClient
+        .from('notificaciones')
+        .select('*')
+        .eq('usuario_destino', usuarioActual)
+        .order('created_at', { ascending: false })
+        .limit(35);
 
-      lista.unshift(nueva);
-      guardarHistorial(lista);
-      window.actualizarContadorCampana();
+      if (error) {
+        console.warn('Error consultando notificaciones en BD:', error.message);
+        return;
+      }
 
-      if(typeof window.renderNotificaciones === 'function'){
+      if (data) {
+        notificacionesCache = data.map(row => ({
+          id: row.id,
+          titulo: row.titulo,
+          mensaje: row.mensaje,
+          tipo: row.tipo || 'info',
+          modulo: row.modulo || 'general',
+          referencia_id: row.referencia_id,
+          leida: Boolean(row.leida),
+          fecha: new Date(row.created_at || Date.now()).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }),
+          created_at: row.created_at
+        }));
+
+        guardarCacheLocal(notificacionesCache);
+        window.actualizarContadorCampana();
         window.renderNotificaciones();
       }
 
-      window.dispatchEvent(new CustomEvent('nuevaNotificacion', { detail: nueva }));
-    } catch(err) {
-      console.error('Error registrando notificación:', err);
+    } catch (err) {
+      console.warn('Fallo cargando notificaciones diferidas:', err);
     }
-
-    toast(tipo, mensaje, titulo);
   };
 
-  // 9. ACCIONES DE GESTIÓN (MARCAR, ELIMINAR Y VACIAR)
-  window.marcarNotificacionLeida = function(id) {
-    const lista = obtenerHistorial();
-    const actualizada = lista.map(n => n.id === Number(id) ? { ...n, leida: true } : n);
-    guardarHistorial(actualizada);
-    window.actualizarContadorCampana();
-    if(typeof window.renderNotificaciones === 'function') window.renderNotificaciones();
+  // ==================================================================
+  // 6. CONTROL DEL CONTADOR Y PANEL DESPLEGABLE
+  // ==================================================================
+  window.actualizarContadorCampana = function () {
+    const contador = document.getElementById('contadorNotificaciones') || document.getElementById('notificacionesCount');
+    if (!contador) return;
+
+    const noLeidas = notificacionesCache.filter(item => !item.leida).length;
+
+    contador.textContent = String(noLeidas);
+    contador.style.display = noLeidas > 0 ? 'inline-flex' : 'none';
   };
 
-  window.marcarTodasNotificacionesLeidas = function() {
-    const lista = obtenerHistorial();
-    const actualizada = lista.map(n => ({ ...n, leida: true }));
-    guardarHistorial(actualizada);
-    window.actualizarContadorCampana();
-    if(typeof window.renderNotificaciones === 'function') window.renderNotificaciones();
-  };
-
-  window.eliminarNotificacion = function(id, e) {
-    if (e && e.stopPropagation) e.stopPropagation();
-    const lista = obtenerHistorial();
-    const actualizada = lista.filter(n => n.id !== Number(id));
-    guardarHistorial(actualizada);
-    window.actualizarContadorCampana();
-    if(typeof window.renderNotificaciones === 'function') window.renderNotificaciones();
-  };
-
-  window.vaciarNotificaciones = function() {
-    guardarHistorial([]);
-    window.actualizarContadorCampana();
-    if(typeof window.renderNotificaciones === 'function') window.renderNotificaciones();
-  };
-
-  // 10. RENDERIZADO DEL PANEL DESPLEGABLE
   window.renderNotificaciones = function () {
     const contenedor = document.getElementById('listaNotificaciones') || document.getElementById('notificacionesBody');
     if (!contenedor) return;
 
-    const lista = obtenerHistorial();
-    if (lista.length === 0) {
-      contenedor.innerHTML = `<div style="text-align:center; padding:24px; color:#94a3b8; font-size:12px;">No tienes notificaciones guardadas.</div>`;
+    if (notificacionesCache.length === 0) {
+      contenedor.innerHTML = `
+        <div class="notif-empty-state">
+          <span>🔔</span>
+          <p>No tienes notificaciones pendientes.</p>
+        </div>`;
       return;
     }
 
-    contenedor.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 14px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:11px;">
-        <span onclick="window.marcarTodasNotificacionesLeidas()" style="color:#2563eb; cursor:pointer; font-weight:700;">✓ Marcar todas leídas</span>
-        <span onclick="window.vaciarNotificaciones()" style="color:#ef4444; cursor:pointer; font-weight:700;">🗑️ Vaciar todo</span>
-      </div>
-      ` + lista.map(n => `
-      <div onclick="window.marcarNotificacionLeida(${n.id})" style="padding:12px 14px; border-bottom:1px solid #f1f5f9; background:${n.leida ? '#ffffff' : '#f0fdf4'}; cursor:pointer; display:flex; flex-direction:column; gap:4px; position:relative; transition:background 0.2s;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="display:flex; align-items:center; gap:6px;">
-            ${!n.leida ? '<span style="width:7px; height:7px; border-radius:50%; background:#16a34a; display:inline-block;"></span>' : ''}
-            <strong style="font-size:12.5px; color:#0f172a;">${n.titulo}</strong>
+    const itemsHTML = notificacionesCache.map(item => {
+      const tipoIcono = item.tipo === 'success' ? '🟢' : item.tipo === 'warning' ? '🟠' : item.tipo === 'error' ? '🔴' : '🔵';
+      const moduloTag = item.modulo && item.modulo !== 'general' ? `<span class="notif-mod-tag">${item.modulo.toUpperCase()}</span>` : '';
+
+      return `
+        <div class="notif-item-row ${item.leida ? 'leida' : 'no-leida'}" onclick="window.marcarNotificacionLeida(${item.id})">
+          <div class="notif-item-head">
+            <div class="notif-item-title-wrap">
+              ${!item.leida ? '<span class="notif-unread-dot"></span>' : ''}
+              <span class="notif-type-tag">${tipoIcono}</span>
+              <strong class="notif-item-title">${item.titulo}</strong>
+              ${moduloTag}
+            </div>
+            <div class="notif-item-meta">
+              <span class="notif-item-date">${item.fecha}</span>
+              <button type="button" class="notif-item-del-btn" onclick="window.eliminarNotificacion(${item.id}, event)" title="Eliminar para mi cuenta">✕</button>
+            </div>
           </div>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:10.5px; color:#94a3b8;">${n.fecha}</span>
-            <button type="button" onclick="window.eliminarNotificacion(${n.id}, event)" style="background:none; border:none; color:#94a3b8; cursor:pointer; font-size:13px; padding:0 2px;" title="Eliminar">✕</button>
-          </div>
+          <p class="notif-item-msg">${item.mensaje}</p>
         </div>
-        <p style="margin:0; font-size:12px; color:#475569; line-height:1.4;">${n.mensaje}</p>
+      `;
+    }).join('');
+
+    contenedor.innerHTML = `
+      <div class="notif-panel-toolbar">
+        <button type="button" class="notif-tool-btn" onclick="window.marcarTodasNotificacionesLeidas()">✓ Marcar todas leídas</button>
+        <button type="button" class="notif-tool-btn danger" onclick="window.vaciarNotificaciones()">🗑️ Vaciar</button>
       </div>
-    `).join('');
+      <div class="notif-items-scroll">
+        ${itemsHTML}
+      </div>
+    `;
   };
 
-  // 11. API MODALES ASÍNCRONOS
-  window.Notif = {
-    success: function(m, t){ toast('success', m, t); },
-    error:   function(m, t){ toast('error', m, t); },
-    warning: function(m, t){ toast('warning', m, t); },
-    info:    function(m, t){ toast('info', m, t); },
+  // ==================================================================
+  // 7. ACCIONES DE GESTIÓN & AISLAMIENTO (PERSISTENCIA DIRECTA EN BD)
+  // ==================================================================
+  window.marcarNotificacionLeida = async function (id) {
+    const usuarioActual = obtenerUsuarioActual();
 
-    confirm: function(mensaje, titulo){
+    // Actualización optimista local
+    notificacionesCache = notificacionesCache.map(n => n.id === Number(id) ? { ...n, leida: true } : n);
+    guardarCacheLocal(notificacionesCache);
+    window.actualizarContadorCampana();
+    window.renderNotificaciones();
+
+    // Actualización en Supabase PostgreSQL
+    if (window.supabaseClient) {
+      try {
+        await window.supabaseClient
+          .from('notificaciones')
+          .update({ leida: true })
+          .eq('id', Number(id))
+          .eq('usuario_destino', usuarioActual);
+      } catch (err) {
+        console.warn('Error marcando notificación leída en BD:', err);
+      }
+    }
+  };
+
+  window.marcarTodasNotificacionesLeidas = async function () {
+    const usuarioActual = obtenerUsuarioActual();
+
+    // Actualización optimista local
+    notificacionesCache = notificacionesCache.map(n => ({ ...n, leida: true }));
+    guardarCacheLocal(notificacionesCache);
+    window.actualizarContadorCampana();
+    window.renderNotificaciones();
+
+    // Actualización masiva en Supabase PostgreSQL
+    if (window.supabaseClient) {
+      try {
+        await window.supabaseClient
+          .from('notificaciones')
+          .update({ leida: true })
+          .eq('usuario_destino', usuarioActual)
+          .eq('leida', false);
+      } catch (err) {
+        console.warn('Error marcando todas leídas en BD:', err);
+      }
+    }
+  };
+
+  window.eliminarNotificacion = async function (id, event) {
+    if (event && event.stopPropagation) event.stopPropagation();
+    const usuarioActual = obtenerUsuarioActual();
+
+    // Actualización optimista local
+    notificacionesCache = notificacionesCache.filter(n => n.id !== Number(id));
+    guardarCacheLocal(notificacionesCache);
+    window.actualizarContadorCampana();
+    window.renderNotificaciones();
+
+    // Eliminación en Supabase PostgreSQL (solo para este usuario)
+    if (window.supabaseClient) {
+      try {
+        await window.supabaseClient
+          .from('notificaciones')
+          .delete()
+          .eq('id', Number(id))
+          .eq('usuario_destino', usuarioActual);
+      } catch (err) {
+        console.warn('Error eliminando notificación en BD:', err);
+      }
+    }
+  };
+
+  window.vaciarNotificaciones = async function () {
+    const usuarioActual = obtenerUsuarioActual();
+
+    // Actualización optimista local
+    notificacionesCache = [];
+    guardarCacheLocal([]);
+    window.actualizarContadorCampana();
+    window.renderNotificaciones();
+
+    // Vaciado en Supabase PostgreSQL (solo para este usuario)
+    if (window.supabaseClient) {
+      try {
+        await window.supabaseClient
+          .from('notificaciones')
+          .delete()
+          .eq('usuario_destino', usuarioActual);
+      } catch (err) {
+        console.warn('Error vaciando notificaciones en BD:', err);
+      }
+    }
+  };
+
+  // ==================================================================
+  // 8. API PÚBLICA PRINCIPAL
+  // ==================================================================
+  window.crearNotificacion = async function (mensaje, tipo = 'info', titulo = '', broadcast = true, modulo = 'general', referencia_id = null) {
+    const tipoFinal = ['success', 'error', 'warning', 'info'].includes(tipo) ? tipo : 'info';
+    const tituloFinal = titulo || (tipoFinal === 'success' ? 'Operación Exitosa' : tipoFinal === 'error' ? 'Alerta del Sistema' : 'Notificación');
+    const usuarioActual = obtenerUsuarioActual();
+
+    // Toast visual inmediato al emisor
+    mostrarToast(tipoFinal, mensaje, tituloFinal);
+
+    // Si broadcast = true, insertar en Supabase para todos los usuarios activos
+    if (broadcast && window.supabaseClient) {
+      try {
+        // Consultar usuarios activos para broadcast
+        const { data: usuariosActivos } = await window.supabaseClient
+          .from('usuarios')
+          .select('usuario')
+          .eq('estado', 'Activo');
+
+        const destinatarios = usuariosActivos && usuariosActivos.length > 0
+          ? usuariosActivos.map(u => u.usuario.toLowerCase().trim())
+          : [usuarioActual];
+
+        const inserts = destinatarios.map(uDestino => ({
+          usuario_destino: uDestino,
+          usuario_origen: usuarioActual,
+          titulo: tituloFinal,
+          mensaje: String(mensaje || ''),
+          tipo: tipoFinal,
+          modulo: modulo,
+          referencia_id: referencia_id ? String(referencia_id) : null,
+          leida: uDestino === usuarioActual,
+          created_at: new Date().toISOString()
+        }));
+
+        await window.supabaseClient.from('notificaciones').insert(inserts);
+
+      } catch (err) {
+        console.warn('Error broadcast de notificación en BD:', err);
+      }
+    }
+  };
+
+  window.mostrarNotificacion = function (titulo, mensaje, tipo = 'info') {
+    window.crearNotificacion(mensaje, tipo, titulo, false);
+  };
+
+  window.notifAlert = function (mensaje) {
+    const texto = String(mensaje || '').toLowerCase();
+    const tipo = texto.includes('error') || texto.includes('fallo') || texto.includes('denegado')
+      ? 'error'
+      : texto.includes('éxito') || texto.includes('exito') || texto.includes('correct')
+      ? 'success'
+      : 'warning';
+
+    window.crearNotificacion(mensaje, tipo, '', false);
+  };
+
+  // API con Promises para Modales Asíncronos
+  window.Notif = {
+    success: (m, t) => window.crearNotificacion(m, 'success', t, false),
+    error: (m, t) => window.crearNotificacion(m, 'error', t, false),
+    warning: (m, t) => window.crearNotificacion(m, 'warning', t, false),
+    info: (m, t) => window.crearNotificacion(m, 'info', t, false),
+
+    confirm: function (mensaje, titulo) {
       asegurarContenedores();
-      reproducirSonidoNotificacion('warning');
+      reproducirSonido('warning');
+
       return new Promise(resolve => {
         const overlay = document.getElementById('notifModalOverlay');
         const box = document.getElementById('notifModalBox');
-        box.style.setProperty('--notif-color', '#ef4444');
-        box.style.setProperty('--notif-bg', '#fef2f2');
+        if (!overlay || !box) return resolve(false);
 
-        document.getElementById('notifModalIcono').innerText = '⚠️';
-        document.getElementById('notifModalTitulo').innerText = titulo || '¿Confirmar acción?';
-        document.getElementById('notifModalMensaje').innerText = mensaje || '';
+        box.style.setProperty('--notif-theme-color', '#ef4444');
+        document.getElementById('notifModalIcono').textContent = '⚠️';
+        document.getElementById('notifModalTitulo').textContent = titulo || '¿Confirmar Acción?';
+        document.getElementById('notifModalMensaje').textContent = mensaje || '';
         document.getElementById('notifModalCampoWrap').innerHTML = '';
 
         const btnCancel = document.getElementById('notifBtnCancelar');
         const btnOk = document.getElementById('notifBtnAceptar');
         btnCancel.style.display = 'inline-block';
-        btnCancel.innerText = 'Cancelar';
-        btnOk.innerText = 'Continuar';
+        btnCancel.textContent = 'Cancelar';
+        btnOk.textContent = 'Confirmar';
 
         overlay.classList.add('active');
 
-        function limpiar() {
+        function cleanup() {
           overlay.classList.remove('active');
           btnOk.removeEventListener('click', onOk);
           btnCancel.removeEventListener('click', onCancel);
         }
-        function onOk() { limpiar(); resolve(true); }
-        function onCancel() { limpiar(); resolve(false); }
+
+        function onOk() { cleanup(); resolve(true); }
+        function onCancel() { cleanup(); resolve(false); }
 
         btnOk.addEventListener('click', onOk);
         btnCancel.addEventListener('click', onCancel);
       });
     },
 
-    prompt: function(mensaje, titulo, valorInicial, opciones){
+    prompt: function (mensaje, titulo, valorInicial = '', opciones = null) {
       asegurarContenedores();
       return new Promise(resolve => {
         const overlay = document.getElementById('notifModalOverlay');
         const box = document.getElementById('notifModalBox');
-        box.style.setProperty('--notif-color', '#2563eb');
-        box.style.setProperty('--notif-bg', '#eff6ff');
+        if (!overlay || !box) return resolve(null);
 
-        document.getElementById('notifModalIcono').innerText = '✏️';
-        document.getElementById('notifModalTitulo').innerText = titulo || 'Ingreso de datos';
-        document.getElementById('notifModalMensaje').innerText = mensaje || '';
+        box.style.setProperty('--notif-theme-color', '#2563eb');
+        document.getElementById('notifModalIcono').textContent = '✏️';
+        document.getElementById('notifModalTitulo').textContent = titulo || 'Ingreso de Datos';
+        document.getElementById('notifModalMensaje').textContent = mensaje || '';
 
         const wrap = document.getElementById('notifModalCampoWrap');
         wrap.innerHTML = '';
 
-        let input;
-        if(opciones && Array.isArray(opciones)) {
-          input = document.createElement('select');
+        let inputElement;
+        if (opciones && Array.isArray(opciones)) {
+          inputElement = document.createElement('select');
+          inputElement.className = 'notif-modal-select';
           opciones.forEach(op => {
             const opt = document.createElement('option');
             opt.value = op;
-            opt.innerText = op;
-            if(op === valorInicial) opt.selected = true;
-            input.appendChild(opt);
+            opt.textContent = op;
+            if (op === valorInicial) opt.selected = true;
+            inputElement.appendChild(opt);
           });
         } else {
-          input = document.createElement('input');
-          input.type = 'text';
-          input.value = valorInicial || '';
+          inputElement = document.createElement('input');
+          inputElement.type = 'text';
+          inputElement.className = 'notif-modal-input';
+          inputElement.value = valorInicial || '';
         }
-        wrap.appendChild(input);
+        wrap.appendChild(inputElement);
 
         const btnCancel = document.getElementById('notifBtnCancelar');
         const btnOk = document.getElementById('notifBtnAceptar');
         btnCancel.style.display = 'inline-block';
-        btnOk.innerText = 'Guardar';
+        btnOk.textContent = 'Guardar';
 
         overlay.classList.add('active');
-        setTimeout(() => input.focus(), 100);
+        setTimeout(() => inputElement.focus(), 80);
 
-        function limpiar() {
+        function cleanup() {
           overlay.classList.remove('active');
           btnOk.removeEventListener('click', onOk);
           btnCancel.removeEventListener('click', onCancel);
         }
-        function onOk() { const val = input.value; limpiar(); resolve(val); }
-        function onCancel() { limpiar(); resolve(null); }
+
+        function onOk() {
+          const val = inputElement.value;
+          cleanup();
+          resolve(val);
+        }
+
+        function onCancel() {
+          cleanup();
+          resolve(null);
+        }
 
         btnOk.addEventListener('click', onOk);
         btnCancel.addEventListener('click', onCancel);
@@ -393,28 +595,79 @@
     }
   };
 
-  window.notifAlert = function(m){
-    const t = String(m).toLowerCase();
-    const tipo = t.includes('error') || t.includes('no se pudo') ? 'error' : t.includes('correct') || t.includes('éxito') ? 'success' : 'warning';
-    toast(tipo, m);
-  };
+  // ==================================================================
+  // 9. SUSCRIPCIÓN SUPABASE REALTIME (EN VIVO POR DESTINATARIO)
+  // ==================================================================
+  function conectarRealtimeNotificaciones() {
+    if (!window.supabaseClient) return;
+    if (realtimeChannel) {
+      window.supabaseClient.removeChannel(realtimeChannel);
+    }
 
-  window.mostrarNotificacion = function(t, m, tipo){
-    toast(tipo || 'info', m, t);
-  };
+    try {
+      const usuarioActual = obtenerUsuarioActual();
 
-  // Inicialización y limpieza automática
-  function inicializar() {
-    limpiarCacheAntigua();
-    asegurarContenedores();
-    window.actualizarContadorCampana();
-    if(typeof window.renderNotificaciones === 'function') window.renderNotificaciones();
+      realtimeChannel = window.supabaseClient
+        .channel(`erp-notificaciones-user-${usuarioActual}-${Date.now()}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'notificaciones' },
+          payload => {
+            const row = payload.new;
+            if (!row) return;
+
+            // Filtrar estrictamente si la alerta es para este usuario
+            const esParaMi = row.usuario_destino && String(row.usuario_destino).toLowerCase().trim() === usuarioActual;
+
+            if (esParaMi) {
+              const item = {
+                id: row.id,
+                titulo: row.titulo,
+                mensaje: row.mensaje,
+                tipo: row.tipo || 'info',
+                modulo: row.modulo || 'general',
+                referencia_id: row.referencia_id,
+                leida: Boolean(row.leida),
+                fecha: new Date(row.created_at || Date.now()).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }),
+                created_at: row.created_at
+              };
+
+              // Prepend al caché
+              notificacionesCache.unshift(item);
+              guardarCacheLocal(notificacionesCache);
+
+              // 1. Sonido + Toast flotante
+              mostrarToast(item.tipo, item.mensaje, item.titulo);
+
+              // 2. Actualizar campana y dropdown
+              window.actualizarContadorCampana();
+              window.renderNotificaciones();
+
+              // 3. Notificar a la ventana
+              window.dispatchEvent(new CustomEvent('nuevaNotificacion', { detail: item }));
+            }
+          }
+        )
+        .subscribe();
+
+    } catch (e) {
+      console.warn('Error inicializando Realtime de notificaciones:', e);
+    }
   }
 
-  if(document.readyState === 'loading'){
+  // ==================================================================
+  // 10. INICIALIZACIÓN
+  // ==================================================================
+  function inicializar() {
+    asegurarContenedores();
+    window.cargarNotificacionesBD();
+
+    setTimeout(conectarRealtimeNotificaciones, 400);
+  }
+
+  if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', inicializar);
   } else {
     inicializar();
   }
-
 })();

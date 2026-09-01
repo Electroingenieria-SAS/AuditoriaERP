@@ -1,81 +1,597 @@
-body{
-    background:#f5f7fb;
-    font-family:Arial;
+/* ==========================================================
+   BI INTELIGENTE & ANALÍTICA DE DATOS — PRO EDITION (v2.7.0)
+   ========================================================== */
+
+.bi-module-container {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  font-family: 'Poppins', sans-serif;
+  color: #0f172a;
+  animation: biFadeIn 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
 }
 
-.bi-container{
-    padding:20px;
+@keyframes biFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.bi-header{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
+/* ==========================================================
+   1. HERO HEADER
+   ========================================================== */
+.bi-hero-header {
+  background: linear-gradient(135deg, #0F1E45 0%, #1D4ED8 50%, #2563EB 100%);
+  border-radius: 22px;
+  padding: 32px 38px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 16px 36px rgba(15, 30, 69, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  position: relative;
+  overflow: hidden;
+  color: #ffffff;
 }
 
-.kpis{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:20px;
-    margin:20px 0;
+.bi-hero-header::after {
+  content: '';
+  position: absolute;
+  top: -40%;
+  right: -10%;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, transparent 70%);
+  pointer-events: none;
 }
 
-.card-kpi{
-    background:white;
-    padding:20px;
-    border-radius:12px;
-    box-shadow:0 2px 8px rgba(0,0,0,.1);
+.bi-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 4px 14px;
+  border-radius: 50px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: #e0f2fe;
+  margin-bottom: 10px;
 }
 
-.card-kpi span{
-    font-size:28px;
-    font-weight:bold;
+.bi-chip-dot {
+  width: 7px;
+  height: 7px;
+  background: #38bdf8;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #38bdf8;
 }
 
-.dashboard-grid{
-    display:grid;
-    grid-template-columns:3fr 1fr;
-    gap:20px;
+.bi-hero-content h2 {
+  font-size: 28px;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.4px;
 }
 
-.panel-graficos{
-    display:grid;
-    gap:20px;
+.bi-hero-content p {
+  color: #bae6fd;
+  font-size: 13.5px;
+  margin: 0;
+  max-width: 720px;
+  line-height: 1.5;
 }
 
-.grafico-card{
-    background:white;
-    padding:20px;
-    border-radius:12px;
+.btn-bi-header-upload {
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 12px 24px;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  transition: all 0.25s ease;
 }
 
-.panel-filtros{
-    background:white;
-    padding:20px;
-    border-radius:12px;
+.btn-bi-header-upload:hover {
+  background: #ffffff;
+  color: #1d4ed8;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
 }
 
-.panel-filtros select{
-    width:100%;
-    margin-bottom:15px;
-    padding:10px;
+/* ==========================================================
+   2. CARDS GENERALES
+   ========================================================== */
+.bi-card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 26px 28px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
 }
 
-#graficoPrincipal{
-    height:400px !important;
+.bi-section-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
 }
 
-#graficoTop{
-    height:300px !important;
+.bi-card-head-simple {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
-#graficoLinea{
-    height:300px !important;
+.bi-card-head-simple h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
 }
 
-.tabla-card{
-    background:white;
-    margin-top:20px;
-    padding:20px;
-    border-radius:12px;
+.bi-card-head-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.bi-card-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.bi-card-title-wrap h3 {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.bi-subtitle {
+  font-size: 12.5px;
+  color: #64748b;
+  display: block;
+  margin-top: 2px;
+}
+
+/* ==========================================================
+   3. PANEL DE CARGA DRAG & DROP
+   ========================================================== */
+.bi-upload-card {
+  padding: 22px;
+  background: #ffffff;
+  border: 2px dashed #cbd5e1;
+  border-radius: 20px;
+  transition: border-color 0.25s, background-color 0.25s;
+  cursor: pointer;
+}
+
+.bi-upload-card:hover,
+.bi-upload-card.drag-over {
+  border-color: #2563eb;
+  background-color: #f8faff;
+}
+
+.upload-dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.dropzone-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.dropzone-text {
+  flex: 1;
+}
+
+.dropzone-text h4 {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 2px 0;
+}
+
+.dropzone-text p {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+}
+
+.dropzone-badge {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 6px 14px;
+  border-radius: 50px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.dropzone-badge.loaded {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+/* ==========================================================
+   4. KPIS PRINCIPALES
+   ========================================================== */
+.bi-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+
+.bi-kpi-card {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 22px 24px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: transform 0.2s ease;
+}
+
+.bi-kpi-card:hover {
+  transform: translateY(-3px);
+}
+
+.bi-kpi-head span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #64748b;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.bi-kpi-card h3 {
+  font-size: 30px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.bi-kpi-card small {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* ==========================================================
+   5. CONTROLES Y SELECTORES
+   ========================================================== */
+.bi-controls-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.bi-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bi-control-group label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.bi-select {
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 13px;
+  font-family: inherit;
+  color: #0f172a;
+  outline: none;
+  cursor: pointer;
+  min-width: 150px;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+
+.bi-select:focus {
+  border-color: #2563eb;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.btn-bi-primary {
+  height: 44px;
+  padding: 0 22px;
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-end;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-bi-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+}
+
+/* ==========================================================
+   6. CONTENEDORES DE GRÁFICOS
+   ========================================================== */
+.bi-dashboard-grid {
+  display: grid;
+  grid-template-columns: 2.7fr 1fr;
+  gap: 22px;
+  align-items: start;
+}
+
+.bi-main-charts {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.bi-chart-container-main {
+  position: relative;
+  width: 100%;
+  height: 380px;
+}
+
+.bi-secondary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+
+.bi-chart-container-secondary {
+  position: relative;
+  width: 100%;
+  height: 270px;
+}
+
+/* ==========================================================
+   7. PANEL DE FILTROS LATERAL
+   ========================================================== */
+.bi-filter-card {
+  position: sticky;
+  top: 20px;
+}
+
+.bi-filter-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.bi-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bi-form-field label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.bi-select-full {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 13px;
+  font-family: inherit;
+  color: #0f172a;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+
+.bi-select-full:focus {
+  border-color: #2563eb;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.bi-filter-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.btn-bi-filter-apply {
+  width: 100%;
+  height: 44px;
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.btn-bi-filter-apply:hover {
+  background: #15803d;
+  transform: translateY(-1px);
+}
+
+.btn-bi-filter-reset {
+  width: 100%;
+  height: 40px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-bi-filter-reset:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* ==========================================================
+   8. TABLA DE DATOS & DATATABLES
+   ========================================================== */
+.bi-table-card {
+  overflow: hidden;
+}
+
+.bi-table-wrapper {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  margin-top: 14px;
+}
+
+.bi-custom-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.bi-custom-table thead th {
+  background: #0F1E45 !important;
+  color: #ffffff !important;
+  padding: 14px 18px !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  letter-spacing: 0.6px !important;
+  border: none !important;
+}
+
+.bi-custom-table tbody td {
+  padding: 13px 18px !important;
+  font-size: 13px !important;
+  color: #334155 !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  vertical-align: middle !important;
+}
+
+.bi-custom-table tbody tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+.bi-custom-table tbody tr:hover {
+  background-color: #eff6ff !important;
+}
+
+/* Ajustes DataTables */
+.dataTables_wrapper {
+  padding: 12px 6px;
+  font-size: 13px;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 13px;
+  outline: none;
+}
+
+.dataTables_wrapper .dataTables_filter input:focus {
+  border-color: #2563eb;
+  background: #ffffff;
+}
+
+.dataTables_wrapper .dataTables_length select {
+  height: 38px;
+  padding: 0 8px;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border: 1px solid #2563eb !important;
+  border-radius: 8px !important;
+}
+
+/* ==========================================================
+   9. RESPONSIVE
+   ========================================================== */
+@media (max-width: 1150px) {
+  .bi-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .bi-dashboard-grid { grid-template-columns: 1fr; }
+  .bi-secondary-grid { grid-template-columns: 1fr; }
+  .bi-filter-card { position: static; }
+}
+
+@media (max-width: 768px) {
+  .bi-hero-header { flex-direction: column; align-items: flex-start; gap: 16px; padding: 24px; }
+  .bi-card { padding: 20px; }
+  .bi-kpi-grid { grid-template-columns: 1fr; }
+  .bi-controls-toolbar { flex-direction: column; align-items: stretch; }
+  .bi-select { width: 100%; min-width: auto; }
 }

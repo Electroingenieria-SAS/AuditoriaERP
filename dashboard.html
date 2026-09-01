@@ -3,12 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Audit System</title>
+  
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://code.jquery.com https://cdn.datatables.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.datatables.net; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co;">
 
-  <!-- Estilos -->
+  <title>Audit System — Centro de Control & ERP</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Estilos del Sistema -->
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/confiabilidad.css">
   <link rel="stylesheet" href="css/auditorias.css">
+  <link rel="stylesheet" href="css/recepcion.css">
+  <link rel="stylesheet" href="css/inventario.css">
+  <link rel="stylesheet" href="css/usuarios.css">
+  <link rel="stylesheet" href="css/bi.css">
   <link rel="stylesheet" href="css/adjuntos.css">
   <link rel="stylesheet" href="css/notificaciones-premium.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -18,11 +30,11 @@
   <div class="dashboard">
     <!-- Barra de navegación superior -->
     <header class="top-navbar">
-      <div class="navbar-logo">
-        <img src="img/logo-electro.png.png" alt="Logo">
+      <div class="navbar-logo" onclick="window.mostrarModulo('dashboard')" style="cursor:pointer;">
+        <img src="img/logo-electro.png.png" alt="Logo ElectroIngeniería">
         <div>
           <h2>AUDITORIA</h2>
-          <p>Auditoría Logística</p>
+          <p>Control Logístico & Pericial</p>
         </div>
       </div>
 
@@ -33,11 +45,12 @@
         <button id="recepcionMenu" class="nav-btn">📥 Recepción</button>
         <button id="confiabilidadMenu" class="nav-btn">📊 Confiabilidad</button>
         <button id="usuariosMenu" class="nav-btn">👥 Usuarios</button>
+        <button id="biMenu" class="nav-btn">📈 BI Inteligente</button>
       </nav>
 
       <div class="navbar-actions">
         <div class="hero-notification">
-          <button class="notification-btn" id="campanaBtn">
+          <button class="notification-btn" id="campanaBtn" title="Centro de Notificaciones" aria-label="Notificaciones">
             🔔
             <span class="notification-count" id="contadorNotificaciones">0</span>
           </button>
@@ -47,13 +60,13 @@
         </div>
 
         <div class="navbar-user">
-          <div class="user-avatar"></div>
+          <div class="user-avatar" id="navbarUserAvatar">A</div>
           <div class="user-info">
             <span id="usuarioNombre">Admin</span>
           </div>
         </div>
 
-        <button id="cerrarSesionBtn" class="logout-mini">Salir</button>
+        <button id="cerrarSesionBtn" class="logout-mini" title="Cerrar sesión segura">Salir</button>
       </div>
     </header>
 
@@ -62,19 +75,19 @@
       <section class="content" id="mainContent">
         <div class="hero-dashboard">
           <div class="hero-controls">
-            <button onclick="slideAnterior()">❮</button>
-            <button onclick="slideSiguiente()">❯</button>
+            <button onclick="window.slideAnterior()" aria-label="Slide anterior">❮</button>
+            <button onclick="window.slideSiguiente()" aria-label="Slide siguiente">❯</button>
           </div>
 
           <div class="hero-slides">
             <div class="hero-slide active">
-              <img src="img/imagem.jpg.jpg" alt="Slide 1">
+              <img src="img/imagem.jpg.jpg" alt="Centro de Operaciones">
             </div>
             <div class="hero-slide">
-              <img src="img/imagen2.jpg" alt="Slide 2">
+              <img src="img/imagen2.jpg" alt="Logística y Control">
             </div>
             <div class="hero-slide">
-              <img src="img/imagen22.jpg" alt="Slide 3">
+              <img src="img/imagen22.jpg" alt="Auditoría de Activos">
             </div>
           </div>
 
@@ -82,49 +95,49 @@
 
           <div class="hero-content">
             <div class="hero-left">
-              <span class="hero-badge">🚀 ERP AUDITORÍA Y LOGÍSTICA</span>
-              <h1>Bienvenido <span id="heroUsuario"></span></h1>
-              <h2>Control total de inventarios, auditorías y operaciones</h2>
-              <p>Centraliza inventario, auditorías, recepción y usuarios desde una única plataforma.</p>
+              <span class="hero-badge">🚀 ERP AUDITORÍA Y LOGÍSTICA v2.7.0</span>
+              <h1>Bienvenido, <span id="heroUsuario">Administrador</span></h1>
+              <h2>Control total de inventarios, auditorías y operaciones periciales</h2>
+              <p>Centralice inventarios, auditorías, recepción y compras con seguridad de grado empresarial.</p>
             </div>
           </div>
         </div>
 
-        <!-- Tarjetas KPI -->
+        <!-- Tarjetas KPI Principales -->
         <div class="dashboard-kpis">
-          <div class="dashboard-kpi products">
+          <div class="dashboard-kpi products" onclick="window.mostrarModulo('inventario')" style="cursor:pointer;" title="Ir a Inventario">
             <div class="kpi-icon">📦</div>
             <div class="kpi-info">
-              <span>Total Productos</span>
-              <strong id="heroInventario">2968</strong>
-              <small>Items</small>
+              <span>Inventario Base</span>
+              <strong id="heroInventario">0</strong>
+              <small>Ítems Registrados</small>
             </div>
           </div>
 
-          <div class="dashboard-kpi recepciones">
+          <div class="dashboard-kpi recepciones" onclick="window.mostrarModulo('recepcion')" style="cursor:pointer;" title="Ir a Recepción">
             <div class="kpi-icon">📥</div>
             <div class="kpi-info">
               <span>Recepciones</span>
               <strong id="heroRecepciones">0</strong>
-              <small>Este Mes</small>
+              <small>Cargamentos Totales</small>
             </div>
           </div>
 
-          <div class="dashboard-kpi auditorias">
+          <div class="dashboard-kpi auditorias" onclick="window.mostrarModulo('auditorias')" style="cursor:pointer;" title="Ir a Auditorías">
             <div class="kpi-icon">📋</div>
             <div class="kpi-info">
               <span>Auditorías</span>
               <strong id="heroAuditorias">0</strong>
-              <small>Ejecutadas</small>
+              <small>Peritajes Realizados</small>
             </div>
           </div>
 
-          <div class="dashboard-kpi alertas">
+          <div class="dashboard-kpi alertas" onclick="window.mostrarModulo('recepcion')" style="cursor:pointer;" title="Ver Novedades Activas">
             <div class="kpi-icon">⚠️</div>
             <div class="kpi-info">
               <span>Alertas Activas</span>
               <strong id="heroNovedades">0</strong>
-              <small>Notificaciones</small>
+              <small>Discrepancias en Seguimiento</small>
             </div>
           </div>
         </div>
@@ -132,19 +145,19 @@
     </main>
   </div>
 
-  <!-- Librerías externas -->
+  <!-- Librerías Externas (CDN) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- Conexión y utilidades -->
+  <!-- Conexión y Capa Base -->
+  <script src="js/config.js"></script>
   <script src="js/supabaseClient.js"></script>
   <script src="js/notificaciones.js"></script>
   <script src="js/adjuntos-common.js"></script>
-  <script src="js/dashboard-recepcion.js"></script>
 
-  <!-- Script principal -->
-  <script src="js/dashboard.js?v=31" defer></script>
-
+  <!-- Script Controlador SPA -->
+  <script src="js/dashboard.js?v=270" defer></script>
 </body>
 </html>

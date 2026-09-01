@@ -4,6 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co;">
+
   <title>Dashboard Ejecutivo - Recepciones Logísticas</title>
 
   <!-- FUENTES GOOGLE -->
@@ -23,7 +26,7 @@
   <!-- HEADER -->
   <header class="dashboard-header">
     <div class="header-left">
-      <img src="../img/logo-electro.png.png" alt="Electroingeniería" class="header-logo-img">
+      <img src="../img/logo-electro.png.png" alt="ElectroIngeniería" class="header-logo-img">
       <div>
         <h1>Dashboard Ejecutivo</h1>
         <span>Centro de Mando & Control de Recepciones Logísticas</span>
@@ -52,7 +55,7 @@
         <span>🟠 Faltantes</span>
       </div>
       <strong id="kpiFaltantes">0</strong>
-      <small>Casos / Unidades</small>
+      <small>Discrepancias detectadas</small>
     </div>
 
     <div class="kpi-card card-blue-alt">
@@ -109,7 +112,7 @@
     </div>
 
     <div class="dashboard-card">
-      <h2>📊 Distribución Novedades</h2>
+      <h2>📊 Distribución de Novedades</h2>
       <div class="chart-wrapper">
         <canvas id="graficoNovedades"></canvas>
       </div>
@@ -181,10 +184,11 @@
 
 <!-- LIBRERÍAS EXTERNAS (CDN) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <!-- SCRIPTS DEL SISTEMA -->
+<script src="../js/config.js"></script>
 <script src="../js/supabaseClient.js"></script>
 <script src="../js/notificaciones.js"></script>
 <script src="../js/dashboard-recepcion.js"></script>

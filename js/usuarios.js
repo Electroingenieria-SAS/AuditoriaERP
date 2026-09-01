@@ -1,389 +1,371 @@
-// =======================================================
-// CONTROLADOR MAESTRO DE USUARIOS & MATRIZ RBAC (AUTO-INIT)
-// =======================================================
+/**
+ * ====================================================================
+ * USUARIOS.JS — Gestión de Cuentas & Matriz de Permisos RBAC
+ * ====================================================================
+ * Versión: 2.7.0
+ */
 
-const MODULOS_SISTEMA = ['inventario', 'recepcion', 'auditorias', 'usuarios', 'confiabilidad'];
+(function () {
+  'use strict';
 
-// Sanitización de entradas
-function sanitizeInput(val) {
-  return String(val || '').replace(/[<>'"`;()]/g, '').trim();
-}
+  let usuariosCache = [];
+  let usuarioEnEdicion = null;
+  const MODULOS_ERP = ['inventario', 'recepcion', 'auditorias', 'usuarios', 'confiabilidad'];
+  const ACCIONES = ['Ver', 'Crear', 'Editar', 'Eliminar'];
 
-// Control rápido de switches
-window.toggleAllPermisos = function(estado) {
-  const switches = document.querySelectorAll('.iam-matrix-grid input[type="checkbox"]');
-  switches.forEach(sw => sw.checked = Boolean(estado));
-};
-
-// =======================================================
-// RENDERIZAR TABLA DE USUARIOS
-// =======================================================
-window.renderUsuarios = async function() {
-  const tbody = document.getElementById('usuariosBody');
-  const countBadge = document.getElementById('totalUsuariosBadge');
-  
-  // Si no está en el DOM actual, abortar
-  if (!tbody) return;
-
-  tbody.innerHTML = `
-    <tr>
-      <td colspan="4" style="text-align: center; color: #64748b; padding: 25px;">
-        <span style="display:inline-block; animation: iamPulse 1s infinite;">⚡</span> Sincronizando directorio con Supabase...
-      </td>
-    </tr>`;
-
-  try {
-    if (!window.supabaseClient) {
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#ef4444; padding:20px;">Sin conexión con la base de datos</td></tr>`;
-      return;
-    }
-
-    const { data, error } = await window.supabaseClient
-      .from('usuarios')
-      .select('id, usuario, rol, estado')
-      .order('id', { ascending: false });
-
-    if (error) {
-      console.error(error);
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#ef4444; padding:20px;">Error al cargar registros</td></tr>`;
-      return;
-    }
-
-    if (countBadge) countBadge.innerText = data ? data.length : 0;
-
-    if (!data || data.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#64748b; padding:25px;">No hay identidades registradas</td></tr>`;
-      return;
-    }
-
-    const puedeEditar = typeof window.tienePermiso === 'function' ? window.tienePermiso('usuarios', 'editar') : true;
-    const puedeEliminar = typeof window.tienePermiso === 'function' ? window.tienePermiso('usuarios', 'eliminar') : true;
-
-    tbody.innerHTML = data.map(item => {
-      const isActivo = item.estado === 'Activo';
-      const initial = (item.usuario || 'U').charAt(0).toUpperCase();
-      const rolClass = (item.rol || 'auditor').toLowerCase();
-
-      return `
-        <tr>
-          <td>
-            <div class="iam-user-cell">
-              <div class="iam-avatar">${initial}</div>
-              <div>
-                <span class="iam-user-name">${item.usuario || '-'}</span>
-              </div>
-            </div>
-          </td>
-          <td>
-            <span class="iam-badge-role ${rolClass}">${item.rol || 'Sin Rol'}</span>
-          </td>
-          <td>
-            <span class="iam-status-pill ${isActivo ? 'activo' : 'inactivo'}">
-              <span class="iam-status-dot"></span>
-              ${item.estado || 'Activo'}
-            </span>
-          </td>
-          <td>
-            <div class="iam-actions-wrap">
-              ${puedeEditar ? `
-                <button type="button" class="iam-btn-action edit" onclick="editarUsuario(${item.id})">
-                  ✏️ Editar
-                </button>
-              ` : ''}
-              ${puedeEliminar ? `
-                <button type="button" class="iam-btn-action delete" onclick="eliminarUsuario(${item.id})">
-                  🗑️ Eliminar
-                </button>
-              ` : ''}
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join('');
-
-  } catch (err) {
-    console.error('Error renderUsuarios:', err);
+  function $(id) {
+    return document.getElementById(id);
   }
-};
 
-// =======================================================
-// GUARDAR USUARIO
-// =======================================================
-window.guardarUsuario = async function() {
-  try {
-    if (typeof window.tienePermiso === 'function' && !window.tienePermiso('usuarios', 'crear')) {
-      notifAlert('Acceso denegado: No tiene permisos para crear usuarios');
-      return;
+  function getVal(id) {
+    const el = $(id);
+    return el ? el.value : '';
+  }
+
+  function setVal(id, val) {
+    const el = $(id);
+    if (el) el.value = val ?? '';
+  }
+
+  function sanitize(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function notificar(mensaje, tipo = 'warning', titulo = 'Usuarios') {
+    if (typeof window.mostrarNotificacion === 'function') {
+      window.mostrarNotificacion(titulo, mensaje, tipo);
+    } else if (typeof window.notifAlert === 'function') {
+      window.notifAlert(mensaje);
     }
+  }
 
-    const usuarioEl = document.getElementById('usuarioInput');
-    const passwordEl = document.getElementById('passwordInput');
-    const rolEl = document.getElementById('rolUsuario');
-
-    if (!usuarioEl || !passwordEl || !rolEl) return;
-
-    const usuario = sanitizeInput(usuarioEl.value.toLowerCase());
-    const password = passwordEl.value.trim();
-    const rol = rolEl.value;
-
-    if (!usuario || !password || !rol) {
-      notifAlert('Complete todos los campos obligatorios');
-      return;
-    }
+  // ==================================================================
+  // 1. CARGA DE USUARIOS
+  // ==================================================================
+  window.renderUsuarios = async function (datos = null) {
+    const tbody = $('usuariosBody');
+    if (!tbody) return;
 
     if (!window.supabaseClient) {
-      notifAlert('Error de conexión con la base de datos');
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:25px;color:#94a3b8;">Sin conexión a Supabase</td></tr>`;
       return;
     }
 
-    // 1. Validar existencia
-    const { data: existente, error: errCheck } = await window.supabaseClient
-      .from('usuarios')
-      .select('id')
-      .eq('usuario', usuario)
-      .limit(1);
+    try {
+      let usuarios = datos;
+      if (!usuarios) {
+        const { data, error } = await window.supabaseClient
+          .from('usuarios')
+          .select('id, usuario, rol, estado, created_at')
+          .order('id');
 
-    if (errCheck) {
-      console.error(errCheck);
-      notifAlert('Error al verificar disponibilidad');
-      return;
-    }
-
-    if (existente && existente.length > 0) {
-      notifAlert('El usuario ya se encuentra registrado');
-      return;
-    }
-
-    // 2. Insertar usuario
-    const { error: errInsert } = await window.supabaseClient
-      .from('usuarios')
-      .insert([{
-        usuario: usuario,
-        password: password,
-        rol: rol,
-        estado: 'Activo'
-      }]);
-
-    if (errInsert) {
-      console.error(errInsert);
-      notifAlert('Error al registrar usuario');
-      return;
-    }
-
-    // 3. Matriz de permisos
-    const permisosPayload = MODULOS_SISTEMA.map(mod => ({
-      usuario: usuario,
-      modulo: mod,
-      ver: Boolean(document.getElementById(`${mod}Ver`)?.checked),
-      crear: Boolean(document.getElementById(`${mod}Crear`)?.checked),
-      editar: Boolean(document.getElementById(`${mod}Editar`)?.checked),
-      eliminar: Boolean(document.getElementById(`${mod}Eliminar`)?.checked)
-    }));
-
-    const { error: errPermisos } = await window.supabaseClient
-      .from('permisos')
-      .insert(permisosPayload);
-
-    if (errPermisos) {
-      console.error(errPermisos);
-      notifAlert('Usuario guardado, pero ocurrió un error con los permisos');
-    }
-
-    if (typeof guardarHistorial === 'function') {
-      await guardarHistorial('CREAR', 'USUARIOS', `Se registró al usuario ${usuario} (${rol})`);
-    }
-
-    window.limpiarFormularioUsuarios();
-    await window.renderUsuarios();
-    notifAlert('Usuario y permisos registrados exitosamente');
-
-  } catch (err) {
-    console.error('Error en guardarUsuario:', err);
-    notifAlert('Error procesando la solicitud');
-  }
-};
-
-// =======================================================
-// EDITAR USUARIO
-// =======================================================
-window.editarUsuario = async function(id) {
-  try {
-    if (typeof window.tienePermiso === 'function' && !window.tienePermiso('usuarios', 'editar')) {
-      notifAlert('Acceso denegado: No tiene permisos de edición');
-      return;
-    }
-
-    const { data: usuario, error } = await window.supabaseClient
-      .from('usuarios')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error || !usuario) {
-      notifAlert('Usuario no encontrado');
-      return;
-    }
-
-    const nuevaPassword = await Notif.prompt(
-      'Ingrese la nueva contraseña:',
-      'Modificar Clave de Acceso',
-      usuario.password || ''
-    );
-    if (nuevaPassword === null) return;
-
-    const nuevoRol = await Notif.prompt(
-      'Seleccione el nuevo rol:',
-      'Asignación de Rol',
-      usuario.rol,
-      ['admin', 'lider', 'jefe', 'auditor', 'compras']
-    );
-    if (!nuevoRol) return;
-
-    const nuevoEstado = await Notif.prompt(
-      'Seleccione el estado de la cuenta:',
-      'Estado Operativo',
-      usuario.estado || 'Activo',
-      ['Activo', 'Inactivo']
-    );
-    if (!nuevoEstado) return;
-
-    const { error: errUpdate } = await window.supabaseClient
-      .from('usuarios')
-      .update({
-        password: nuevaPassword.trim(),
-        rol: nuevoRol,
-        estado: nuevoEstado
-      })
-      .eq('id', id);
-
-    if (errUpdate) {
-      console.error(errUpdate);
-      notifAlert('Error al actualizar datos');
-      return;
-    }
-
-    if (typeof guardarHistorial === 'function') {
-      await guardarHistorial('EDITAR', 'USUARIOS', `Se actualizó al usuario ${usuario.usuario}`);
-    }
-
-    await window.renderUsuarios();
-    notifAlert('Identidad actualizada correctamente');
-
-  } catch (err) {
-    console.error('Error en editarUsuario:', err);
-  }
-};
-
-// =======================================================
-// ELIMINAR USUARIO
-// =======================================================
-window.eliminarUsuario = async function(id) {
-  try {
-    if (typeof window.tienePermiso === 'function' && !window.tienePermiso('usuarios', 'eliminar')) {
-      notifAlert('Acceso denegado: No cuenta con permisos para eliminar usuarios');
-      return;
-    }
-
-    const confirmar = await Notif.confirm(
-      'Se revocarán todos los accesos permanentemente.',
-      '¿Eliminar este usuario?'
-    );
-    if (!confirmar) return;
-
-    const { data: usuario } = await window.supabaseClient
-      .from('usuarios')
-      .select('usuario')
-      .eq('id', id)
-      .single();
-
-    const { error: errDel } = await window.supabaseClient
-      .from('usuarios')
-      .delete()
-      .eq('id', id);
-
-    if (errDel) {
-      console.error(errDel);
-      notifAlert('Error al eliminar usuario');
-      return;
-    }
-
-    if (usuario && usuario.usuario) {
-      await window.supabaseClient
-        .from('permisos')
-        .delete()
-        .eq('usuario', usuario.usuario);
-
-      if (typeof guardarHistorial === 'function') {
-        await guardarHistorial('ELIMINAR', 'USUARIOS', `Se eliminó al usuario ${usuario.usuario}`);
+        if (error) {
+          console.error('Error renderUsuarios:', error.message);
+          return;
+        }
+        usuarios = data || [];
+        usuariosCache = usuarios;
       }
+
+      const badgeTotal = $('totalUsuariosBadge');
+      if (badgeTotal) badgeTotal.innerText = usuarios.length;
+
+      if (usuarios.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:25px;color:#94a3b8;">No existen usuarios registrados.</td></tr>`;
+        return;
+      }
+
+      const soyAdmin = window.usuarioLogueado?.rol === 'admin';
+
+      tbody.innerHTML = usuarios.map(u => {
+        const estadoClass = u.estado === 'Activo' ? 'estado-revisado' : 'estado-cerrado';
+        const esMismoUsuario = u.usuario === window.usuarioLogueado?.usuario;
+
+        return `
+          <tr>
+            <td>
+              <div class="user-identity-cell">
+                <div class="user-avatar-small">${sanitize(u.usuario.charAt(0).toUpperCase())}</div>
+                <div>
+                  <strong>${sanitize(u.usuario)}</strong>
+                  <span class="user-cell-meta">${u.created_at ? new Date(u.created_at).toLocaleDateString('es-CO') : '-'}</span>
+                </div>
+              </div>
+            </td>
+            <td><span class="user-role-badge ${u.rol === 'admin' ? 'role-admin' : 'role-user'}">${sanitize(u.rol.toUpperCase())}</span></td>
+            <td><span class="${estadoClass}">${sanitize(u.estado)}</span></td>
+            <td style="text-align:right;">
+              <div class="acciones-tabla-mini" style="justify-content:flex-end;">
+                ${soyAdmin ? `
+                  <button type="button" class="btn-mini" onclick="window.editarUsuarioForm('${sanitize(u.usuario)}')" title="Editar Identidad y Permisos">✏️</button>
+                  ${!esMismoUsuario ? `
+                    <button type="button" class="btn-mini btn-eliminar-mini" onclick="window.eliminarUsuario(${u.id}, '${sanitize(u.usuario)}')" title="Eliminar Usuario">🗑️</button>
+                  ` : ''}
+                ` : '<span style="color:#94a3b8;font-size:11px;">Solo Lectura</span>'}
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+
+    } catch (err) {
+      console.error(err);
     }
+  };
 
-    await window.renderUsuarios();
-    notifAlert('Usuario revocado del sistema');
+  // ==================================================================
+  // 2. MATRIZ DE PERMISOS (SWITCHES)
+  // ==================================================================
+  window.toggleAllPermisos = function (marcar) {
+    MODULOS_ERP.forEach(mod => {
+      ACCIONES.forEach(acc => {
+        const sw = $(`${mod}${acc}`);
+        if (sw) sw.checked = Boolean(marcar);
+      });
+    });
+  };
 
-  } catch (err) {
-    console.error('Error en eliminarUsuario:', err);
+  function leerPermisosFormulario() {
+    const matriz = {};
+    MODULOS_ERP.forEach(mod => {
+      matriz[mod] = {
+        ver: Boolean($(`${mod}Ver`)?.checked),
+        crear: Boolean($(`${mod}Crear`)?.checked),
+        editar: Boolean($(`${mod}Editar`)?.checked),
+        eliminar: Boolean($(`${mod}Eliminar`)?.checked)
+      };
+    });
+    return matriz;
   }
-};
 
-// =======================================================
-// LIMPIEZA DE FORMULARIO
-// =======================================================
-window.limpiarFormularioUsuarios = function() {
-  const u = document.getElementById('usuarioInput');
-  const p = document.getElementById('passwordInput');
-  const r = document.getElementById('rolUsuario');
-
-  if (u) u.value = '';
-  if (p) p.value = '';
-  if (r) r.value = 'auditor';
-
-  window.toggleAllPermisos(false);
-};
-
-// =======================================================
-// DELEGACIÓN GLOBAL DE EVENTOS (NUNCA SE PIERDEN)
-// =======================================================
-document.addEventListener('click', function(e) {
-  if (e.target && (e.target.id === 'guardarUsuario' || e.target.closest('#guardarUsuario'))) {
-    e.preventDefault();
-    window.guardarUsuario();
-  }
-});
-
-document.addEventListener('input', function(e) {
-  if (e.target && e.target.id === 'buscarUsuario') {
-    const q = e.target.value.toLowerCase().trim();
-    const rows = document.querySelectorAll('#usuariosBody tr');
-    rows.forEach(r => {
-      r.style.display = r.innerText.toLowerCase().includes(q) ? '' : 'none';
+  function setPermisosFormulario(permisosMap = {}) {
+    MODULOS_ERP.forEach(mod => {
+      const p = permisosMap[mod] || {};
+      ACCIONES.forEach(acc => {
+        const sw = $(`${mod}${acc}`);
+        if (sw) sw.checked = Boolean(p[acc.toLowerCase()]);
+      });
     });
   }
-});
 
-// =======================================================
-// AUTO-INICIALIZADOR (DISPARA LA CARGA AL ENTRAR AL MÓDULO)
-// =======================================================
-window.initModuloUsuarios = function() {
-  if (document.getElementById('usuariosBody')) {
-    window.renderUsuarios();
+  // ==================================================================
+  // 3. EDICIÓN & LIMPIEZA DEL FORMULARIO
+  // ==================================================================
+  window.editarUsuarioForm = async function (usuarioNombre) {
+    const user = usuariosCache.find(u => u.usuario === usuarioNombre);
+    if (!user) return;
+
+    usuarioEnEdicion = user;
+    setVal('usuarioInput', user.usuario);
+    setVal('passwordInput', '');
+    setVal('rolUsuario', user.rol);
+
+    const userInp = $('usuarioInput');
+    if (userInp) userInp.disabled = true;
+
+    const passInp = $('passwordInput');
+    if (passInp) passInp.placeholder = 'Dejar en blanco para no cambiar';
+
+    // Cargar permisos desde Supabase
+    const permisosMap = {};
+    if (window.supabaseClient) {
+      const { data } = await window.supabaseClient
+        .from('permisos')
+        .select('*')
+        .eq('usuario', user.usuario);
+
+      (data || []).forEach(p => {
+        permisosMap[p.modulo] = {
+          ver: Boolean(p.ver),
+          crear: Boolean(p.crear),
+          editar: Boolean(p.editar),
+          eliminar: Boolean(p.eliminar)
+        };
+      });
+    }
+
+    setPermisosFormulario(permisosMap);
+
+    // Scroll suave hacia el formulario
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    notificar(`Cargado usuario "${user.usuario}" para edición.`, 'info');
+  };
+
+  window.limpiarFormulario = function () {
+    usuarioEnEdicion = null;
+    setVal('usuarioInput', '');
+    setVal('passwordInput', '');
+    setVal('rolUsuario', 'auditor');
+
+    const userInp = $('usuarioInput');
+    if (userInp) userInp.disabled = false;
+
+    const passInp = $('passwordInput');
+    if (passInp) passInp.placeholder = '••••••••••••';
+
+    window.toggleAllPermisos(false);
+  };
+
+  // ==================================================================
+  // 4. GUARDAR USUARIO Y PERMISOS
+  // ==================================================================
+  async function guardarUsuario() {
+    const btn = $('guardarUsuario');
+    try {
+      const usuario = getVal('usuarioInput').toLowerCase().trim();
+      const password = getVal('passwordInput').trim();
+      const rol = getVal('rolUsuario');
+
+      if (!usuario) {
+        notificar('El nombre de usuario o identificador es obligatorio.');
+        return;
+      }
+
+      if (!usuarioEnEdicion && !password) {
+        notificar('Debe asignar una contraseña para la nueva identidad.');
+        return;
+      }
+
+      if (btn) btn.disabled = true;
+
+      const permisos = leerPermisosFormulario();
+
+      if (usuarioEnEdicion) {
+        // Actualizar
+        const payload = { rol };
+        if (password) payload.password = password;
+
+        const { error } = await window.supabaseClient
+          .from('usuarios')
+          .update(payload)
+          .eq('id', usuarioEnEdicion.id);
+
+        if (error) throw error;
+
+        // Upsert permisos por módulo
+        for (const mod of MODULOS_ERP) {
+          const p = permisos[mod];
+          await window.supabaseClient
+            .from('permisos')
+            .upsert({
+              usuario,
+              modulo: mod,
+              ver: rol === 'admin' ? true : p.ver,
+              crear: rol === 'admin' ? true : p.crear,
+              editar: rol === 'admin' ? true : p.editar,
+              eliminar: rol === 'admin' ? true : p.eliminar
+            }, { onConflict: 'usuario, modulo' });
+        }
+
+        if (typeof window.guardarHistorial === 'function') {
+          await window.guardarHistorial('EDITAR_USUARIO', 'USUARIOS', `Identidad modificada: ${usuario} (Rol: ${rol})`);
+        }
+
+        notificar(`Usuario "${usuario}" y permisos actualizados.`, 'success');
+
+      } else {
+        // Insertar nuevo usuario
+        const { error: errUser } = await window.supabaseClient
+          .from('usuarios')
+          .insert([{
+            usuario,
+            password,
+            rol,
+            estado: 'Activo',
+            created_at: new Date().toISOString()
+          }]);
+
+        if (errUser) throw errUser;
+
+        // Insertar permisos
+        const rowsPermisos = MODULOS_ERP.map(mod => ({
+          usuario,
+          modulo: mod,
+          ver: rol === 'admin' ? true : permisos[mod].ver,
+          crear: rol === 'admin' ? true : permisos[mod].crear,
+          editar: rol === 'admin' ? true : permisos[mod].editar,
+          eliminar: rol === 'admin' ? true : permisos[mod].eliminar
+        }));
+
+        await window.supabaseClient.from('permisos').insert(rowsPermisos);
+
+        if (typeof window.guardarHistorial === 'function') {
+          await window.guardarHistorial('CREAR_USUARIO', 'USUARIOS', `Nueva identidad creada: ${usuario} (Rol: ${rol})`);
+        }
+
+        if (typeof window.crearNotificacion === 'function') {
+          window.crearNotificacion(`👤 Usuario registrado: ${usuario} (${rol})`, 'info');
+        }
+
+        notificar(`Usuario "${usuario}" creado exitosamente.`, 'success');
+      }
+
+      window.limpiarFormulario();
+      await window.renderUsuarios();
+
+    } catch (err) {
+      console.error(err);
+      notificar('Error al procesar usuario: ' + err.message, 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
-};
 
-// 1. Ejecutar de inmediato si ya está montado
-window.initModuloUsuarios();
+  // ==================================================================
+  // 5. ELIMINAR USUARIO
+  // ==================================================================
+  window.eliminarUsuario = async function (id, usuario) {
+    if (!confirm(`¿Eliminar definitivamente el usuario "${usuario}" y sus permisos?`)) return;
 
-// 2. Observador automático de cambios en el contenedor principal
-if (!window._iamObserverIniciado) {
-  window._iamObserverIniciado = true;
-  const observer = new MutationObserver(() => {
-    const tableBody = document.getElementById('usuariosBody');
-    // Si la tabla apareció vacía o no ha sido inicializada
-    if (tableBody && (!tableBody.dataset.loaded || tableBody.children.length === 0)) {
-      tableBody.dataset.loaded = "true";
-      window.renderUsuarios();
+    try {
+      if (window.supabaseClient) {
+        await window.supabaseClient.from('permisos').delete().eq('usuario', usuario);
+        await window.supabaseClient.from('usuarios').delete().eq('id', Number(id));
+      }
+
+      if (typeof window.guardarHistorial === 'function') {
+        await window.guardarHistorial('ELIMINAR_USUARIO', 'USUARIOS', `Usuario eliminado: ${usuario}`);
+      }
+
+      await window.renderUsuarios();
+      notificar(`Usuario "${usuario}" eliminado.`, 'success');
+
+    } catch (err) {
+      console.error(err);
+      notificar('Error eliminando usuario: ' + err.message, 'error');
+    }
+  };
+
+  // ==================================================================
+  // 6. LISTENERS
+  // ==================================================================
+  document.addEventListener('input', function (e) {
+    if (e.target && e.target.id === 'buscarUsuario') {
+      const q = e.target.value.toLowerCase().trim();
+      if (!q) {
+        window.renderUsuarios(usuariosCache);
+        return;
+      }
+      const filtrados = usuariosCache.filter(u =>
+        String(u.usuario || '').toLowerCase().includes(q) ||
+        String(u.rol || '').toLowerCase().includes(q) ||
+        String(u.estado || '').toLowerCase().includes(q)
+      );
+      window.renderUsuarios(filtrados);
     }
   });
 
-  observer.observe(document.body, { childList: true, subtree: true });
-}
+  document.addEventListener('click', function (e) {
+    if (e.target && (e.target.id === 'guardarUsuario' || e.target.closest('#guardarUsuario'))) {
+      e.preventDefault();
+      guardarUsuario();
+    }
+  });
+
+  // Inicialización
+  window.renderUsuarios();
+})();

@@ -1,166 +1,206 @@
-// =====================================
-// LOGIN JS - AUDIT SYSTEM
-// =====================================
+/**
+ * ====================================================================
+ * LOGIN CONTROLLER — AUDIT SYSTEM SECURITY GATEWAY
+ * ====================================================================
+ * Versión: 2.7.0
+ * Funcionalidades:
+ *  - Rate Limiting defensivo progresivo (Anti-Brute Force).
+ *  - Sanitización estricta de entradas.
+ *  - Transición HUD de validación biométrica / "Acceso Autorizado".
+ *  - Manejo de roles, sesiones y estados de cuenta (Activo/Inactivo).
+ */
 
-const form = document.getElementById('loginForm');
-const authOverlay = document.getElementById('authOverlay');
-const scannerStatus = document.getElementById('scannerStatus');
-const btnLogin = document.getElementById('btnLogin');
+(function () {
+  'use strict';
 
-// Control local de tasa de intentos (Rate Limiting)
-const RATE_LIMIT = {
-  MAX_ATTEMPTS: 5,
-  WINDOW_MS: 60000, // 1 minuto de bloqueo
-  attempts: 0,
-  lockUntil: 0
-};
+  const form = document.getElementById('loginForm');
+  const authOverlay = document.getElementById('authOverlay');
+  const scannerStatus = document.getElementById('scannerStatus');
+  const btnLogin = document.getElementById('btnLogin');
 
-if (form) {
-  form.addEventListener('submit', handleLogin);
-}
+  // Control local de tasa de intentos (Rate Limiting)
+  const rateLimitConfig = window.ERP_CONFIG?.RATE_LIMIT || {
+    MAX_LOGIN_ATTEMPTS: 5,
+    LOCKOUT_DURATION_MS: 60000
+  };
 
-// Sanitización contra inyecciones y caracteres extraños
-function sanitizeInput(str) {
-  return String(str || '')
-    .replace(/[<>'"`;()]/g, '')
-    .trim();
-}
+  const RATE_LIMIT = {
+    MAX_ATTEMPTS: rateLimitConfig.MAX_LOGIN_ATTEMPTS || 5,
+    WINDOW_MS: rateLimitConfig.LOCKOUT_DURATION_MS || 60000,
+    attempts: 0,
+    lockUntil: 0
+  };
 
-function checkRateLimit() {
-  const now = Date.now();
-  if (now < RATE_LIMIT.lockUntil) {
-    const remainingSecs = Math.ceil((RATE_LIMIT.lockUntil - now) / 1000);
-    return { blocked: true, msg: `Demasiados intentos. Bloqueo temporal por ${remainingSecs}s.` };
-  }
-  return { blocked: false };
-}
-
-function registerFailedAttempt() {
-  RATE_LIMIT.attempts += 1;
-  if (RATE_LIMIT.attempts >= RATE_LIMIT.MAX_ATTEMPTS) {
-    RATE_LIMIT.lockUntil = Date.now() + RATE_LIMIT.WINDOW_MS;
-    RATE_LIMIT.attempts = 0;
-  }
-}
-
-async function handleLogin(e) {
-  e.preventDefault();
-
-  const rateCheck = checkRateLimit();
-  if (rateCheck.blocked) {
-    notifAlert(rateCheck.msg);
-    return;
+  if (form) {
+    form.addEventListener('submit', handleLogin);
   }
 
-  const usuarioInput = document.getElementById('usuario');
-  const passwordInput = document.getElementById('password');
-
-  if (!usuarioInput || !passwordInput) {
-    notifAlert('Error en campos de autenticación');
-    return;
+  // Sanitización contra inyecciones y caracteres no permitidos
+  function sanitizeInput(str) {
+    return String(str || '')
+      .replace(/[<>'"`;()]/g, '')
+      .trim();
   }
 
-  const usuario = sanitizeInput(usuarioInput.value.toLowerCase());
-  const password = passwordInput.value.trim();
-
-  if (!usuario || !password) {
-    notifAlert('Debe completar todos los campos');
-    return;
+  function checkRateLimit() {
+    const now = Date.now();
+    if (now < RATE_LIMIT.lockUntil) {
+      const remainingSecs = Math.ceil((RATE_LIMIT.lockUntil - now) / 1000);
+      return {
+        blocked: true,
+        msg: `Demasiados intentos fallidos. Terminal bloqueada por ${remainingSecs}s.`
+      };
+    }
+    return { blocked: false };
   }
 
-  if (!window.supabaseClient) {
-    notifAlert('Error de conexión con el gateway central');
-    return;
+  function registerFailedAttempt() {
+    RATE_LIMIT.attempts += 1;
+    if (RATE_LIMIT.attempts >= RATE_LIMIT.MAX_ATTEMPTS) {
+      RATE_LIMIT.lockUntil = Date.now() + RATE_LIMIT.WINDOW_MS;
+      RATE_LIMIT.attempts = 0;
+    }
   }
 
-  // Activar estado visual de "Autenticando..."
-  setLoadingState(true, 'AUTENTICANDO CREDENCIALES...');
+  function setLoadingState(isLoading, message = '') {
+    if (!authOverlay) return;
 
-  try {
-    // Retardo visual deliberado para efecto tech de escaneo
-    await new Promise(r => setTimeout(r, 900));
+    if (isLoading) {
+      authOverlay.classList.add('active');
+      if (scannerStatus) scannerStatus.innerText = message;
+      if (btnLogin) btnLogin.disabled = true;
+    } else {
+      authOverlay.classList.remove('active');
+      if (btnLogin) btnLogin.disabled = false;
+    }
+  }
 
-    const { data, error } = await window.supabaseClient
-      .from('usuarios')
-      .select('usuario, rol, estado')
-      .eq('usuario', usuario)
-      .eq('password', password)
-      .limit(1);
+  async function handleLogin(e) {
+    e.preventDefault();
 
-    if (error) {
-      console.error(error);
-      registerFailedAttempt();
-      setLoadingState(false);
-      notifAlert('Error conectando con la base de datos');
+    const rateCheck = checkRateLimit();
+    if (rateCheck.blocked) {
+      if (typeof window.notifAlert === 'function') {
+        window.notifAlert(rateCheck.msg);
+      }
       return;
     }
 
-    if (!data || data.length === 0) {
-      registerFailedAttempt();
-      setLoadingState(false);
-      notifAlert('Usuario o contraseña no autorizados');
+    const usuarioInput = document.getElementById('usuario');
+    const passwordInput = document.getElementById('password');
+
+    if (!usuarioInput || !passwordInput) {
+      window.notifAlert('Error en campos de autenticación.');
       return;
     }
 
-    const usuarioData = data[0];
+    const usuario = sanitizeInput(usuarioInput.value.toLowerCase());
+    const password = passwordInput.value.trim();
 
-    if (usuarioData.estado === 'Inactivo') {
-      setLoadingState(false);
-      notifAlert('Cuenta suspendida o inactiva');
+    if (!usuario || !password) {
+      window.notifAlert('Debe ingresar su identificador y contraseña.');
       return;
     }
 
-    // Resetear rate limiting
-    RATE_LIMIT.attempts = 0;
+    if (!window.supabaseClient) {
+      window.notifAlert('Error conectando con el Gateway central de Supabase.');
+      return;
+    }
 
-    // Almacenar solo la información requerida (sin exponer hashes ni password)
-    localStorage.setItem('usuarioLogueado', JSON.stringify({
-      usuario: usuarioData.usuario,
-      rol: usuarioData.rol
-    }));
+    // Activar estado visual de escaneo
+    setLoadingState(true, 'VERIFICANDO IDENTIDAD & PRIVILEGIOS...');
 
-    scannerStatus.innerText = 'ACCESO CONFIRMADO';
+    try {
+      // Retardo visual deliberado para efecto tech de escaneo
+      await new Promise(r => setTimeout(r, 750));
 
-    setTimeout(() => {
+      const { data, error } = await window.supabaseClient
+        .from('usuarios')
+        .select('id, usuario, rol, estado')
+        .eq('usuario', usuario)
+        .eq('password', password)
+        .limit(1);
+
+      if (error) {
+        console.error('Error Supabase Login:', error.message);
+        registerFailedAttempt();
+        setLoadingState(false);
+        window.notifAlert('Error de comunicación con la base de datos.');
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        registerFailedAttempt();
+        setLoadingState(false);
+        window.notifAlert('Identificador o contraseña incorrectos.');
+        return;
+      }
+
+      const usuarioData = data[0];
+
+      if (usuarioData.estado !== 'Activo') {
+        setLoadingState(false);
+        window.notifAlert('Su cuenta se encuentra suspendida o inactiva.');
+        return;
+      }
+
+      // Resetear rate limiting tras éxito
+      RATE_LIMIT.attempts = 0;
+
+      // Almacenar información de sesión segura
+      localStorage.setItem('usuarioLogueado', JSON.stringify({
+        usuario: usuarioData.usuario,
+        rol: usuarioData.rol
+      }));
+
+      // Registrar inicio de sesión en historial
+      try {
+        await window.supabaseClient.from('historial').insert([{
+          usuario: usuarioData.usuario,
+          accion: 'LOGIN',
+          modulo: 'autenticacion',
+          descripcion: `Inicio de sesión exitoso desde terminal web (Rol: ${usuarioData.rol})`
+        }]);
+      } catch (_) {
+        // Fallback silencioso
+      }
+
+      if (scannerStatus) scannerStatus.innerText = 'ACCESO AUTORIZADO';
+
+      setTimeout(() => {
+        setLoadingState(false);
+        window.mostrarBienvenida(usuarioData.usuario, usuarioData.rol);
+      }, 400);
+
+    } catch (err) {
+      console.error('Excepción crítica en login:', err);
       setLoadingState(false);
-      window.mostrarBienvenida(usuarioData.usuario, usuarioData.rol);
-    }, 500);
-
-  } catch (error) {
-    console.error(error);
-    setLoadingState(false);
-    notifAlert('Fallo crítico de autenticación');
+      window.notifAlert('Fallo inesperado durante la autenticación.');
+    }
   }
-}
 
-function setLoadingState(isLoading, message = '') {
-  if (isLoading) {
-    authOverlay.classList.add('active');
-    if (scannerStatus) scannerStatus.innerText = message;
-    if (btnLogin) btnLogin.disabled = true;
-  } else {
-    authOverlay.classList.remove('active');
-    if (btnLogin) btnLogin.disabled = false;
-  }
-}
+  window.mostrarBienvenida = function (usuario, rol) {
+    const userEl = document.getElementById('bienvenidaUsuario');
+    const rolEl = document.getElementById('bienvenidaRol');
+    const modal = document.getElementById('modalBienvenida');
 
-window.mostrarBienvenida = function (usuario, rol) {
-  const userEl = document.getElementById('bienvenidaUsuario');
-  const rolEl = document.getElementById('bienvenidaRol');
-  const modal = document.getElementById('modalBienvenida');
+    if (userEl) userEl.innerText = usuario.toUpperCase();
+    if (rolEl) rolEl.innerText = (rol || 'Auditor').toUpperCase();
+    if (modal) modal.style.display = 'flex';
 
-  if (userEl) userEl.innerText = usuario;
-  if (rolEl) rolEl.innerText = rol || 'General';
-  if (modal) modal.style.display = 'flex';
-};
+    if (typeof window.crearNotificacion === 'function') {
+      window.crearNotificacion(`Bienvenido al sistema, ${usuario}`, 'success', 'Acceso Autorizado', false);
+    }
+  };
 
-window.cerrarModalBienvenida = function () {
-  const modal = document.getElementById('modalBienvenida');
-  if (modal) modal.style.display = 'none';
-  window.location.href = 'dashboard.html';
-};
+  window.cerrarModalBienvenida = function () {
+    const modal = document.getElementById('modalBienvenida');
+    if (modal) modal.style.display = 'none';
+    window.location.href = 'dashboard.html';
+  };
 
-document.addEventListener('DOMContentLoaded', () => {
-  const modal = document.getElementById('modalBienvenida');
-  if (modal) modal.style.display = 'none';
-});
+  document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('modalBienvenida');
+    if (modal) modal.style.display = 'none';
+  });
+})();

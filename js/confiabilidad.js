@@ -1,1597 +1,540 @@
-//==========================================================
-// EI AUDITORÍA ERP
-// MÓDULO CONFIABILIDAD DE INVENTARIO 
-//==========================================================
-//==========================================================
-// IIFE (FUNCIÓN AUTOEJECUTABLE)
-// -----------------------------------------------------------
-// Este módulo se recarga dinámicamente cada vez que el
-// usuario entra a "Confiabilidad" (dashboard.js quita el
-// <script> anterior y agrega uno nuevo). Si "const ICONOS"
-// y "class ConfiabilidadInventario" quedan declarados en el
-// scope global, la SEGUNDA vez que se carga el script el
-// navegador lanza "Identifier ... has already been declared"
-// y el archivo completo deja de ejecutarse: por eso el
-// módulo "se ponía en cero" al volver a entrar, aunque los
-// datos seguían guardados en localStorage.
-// Envolviendo todo en esta función, cada recarga usa su
-// propio scope aislado y el script puede ejecutarse las
-// veces que sea necesario sin choques.
-//==========================================================
-(function(){
-"use strict";
+/**
+ * ====================================================================
+ * CONFIABILIDAD.JS — Módulo de Confiabilidad de Inventario & Métricas
+ * ====================================================================
+ * Versión: 2.7.0
+ */
 
-//==========================================================
-// ÍCONOS SVG EN LÍNEA
-// (antes se usaban clases Font Awesome tipo "fa-solid fa-x",
-// que dependían de un CDN externo. Se reemplazan por SVG en
-// línea para que siempre se vean, sin depender de internet)
-//==========================================================
+(function () {
+  'use strict';
 
-const ICONOS = {
+  let confiabilidadCache = [];
+  let analisisEnEdicionId = null;
 
-    guardar:`<svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h8V4M8 20v-6h8v6"/></svg>`,
+  function $(id) {
+    return document.getElementById(id);
+  }
 
-    ojo:`<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>`,
+  function getVal(id) {
+    const el = $(id);
+    return el ? el.value : '';
+  }
 
-    lapiz:`<svg viewBox="0 0 24 24"><path d="M4 20l1-4.2L15.6 5.2a1.5 1.5 0 0 1 2.1 0l1.1 1.1a1.5 1.5 0 0 1 0 2.1L8.2 19 4 20z"/></svg>`,
+  function setVal(id, val) {
+    const el = $(id);
+    if (el) el.value = val ?? '';
+  }
 
-    papelera:`<svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/></svg>`,
+  function sanitize(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
 
-    cajaAbierta:`<svg viewBox="0 0 24 24"><path d="M3 9.5 12 6l9 3.5"/><path d="M3 9.5V18l9 3.5 9-3.5V9.5"/><path d="M12 6v6M3 9.5l9 3.5 9-3.5"/></svg>`
+  function notificar(mensaje, tipo = 'warning', titulo = 'Confiabilidad') {
+    if (typeof window.mostrarNotificacion === 'function') {
+      window.mostrarNotificacion(titulo, mensaje, tipo);
+    } else if (typeof window.notifAlert === 'function') {
+      window.notifAlert(mensaje);
+    }
+  }
 
-};
+  function formatearPorcentaje(val) {
+    const n = Number(val);
+    return isNaN(n) ? '0.00%' : `${n.toFixed(2)}%`;
+  }
 
-class ConfiabilidadInventario{
+  function formatearMoneda(val) {
+    const n = Number(val);
+    return isNaN(n) ? '$0' : `$${n.toLocaleString('es-CO')}`;
+  }
 
-    //======================================================
-    // CONSTRUCTOR
-    //======================================================
+  // ==================================================================
+  // 1. CÁLCULO EN TIEMPO REAL DE INDICADORES
+  // ==================================================================
+  function calcularMetricas(datos) {
+    const totalEmpresa = Number(datos.total_empresa) || 0;
+    const programados = Number(datos.programados) || 0;
+    const auditados = Number(datos.auditados) || 0;
+    const correctos = Number(datos.correctos) || 0;
+    const valorInventario = Number(datos.valor_inventario) || 0;
+    const valorAuditado = Number(datos.valor_auditado) || 0;
+    const valorDiferencias = Number(datos.valor_diferencias) || 0;
+    const valorAjustes = Number(datos.valor_ajustes) || 0;
 
-    constructor(){
+    // Confiabilidad Física
+    const fisica = auditados > 0 ? (correctos / auditados) * 100 : 0;
 
-        this.dom = {};
-
-        this.form = {};
-
-        this.preview = {};
-
-        this.dashboard = {};
-
-       this.state = {
-
-    analisis: JSON.parse(
-
-        localStorage.getItem(
-            "confiabilidadInventario"
-        )
-
-    ) || [],
-
-    actual:null,
-
-    editando:false,
-
-    indiceEditar:null
-
-};
-
-        this.init();
-
+    // Confiabilidad Económica
+    let economica = 100;
+    if (valorAuditado > 0) {
+      economica = Math.max(0, 100 - (valorDiferencias / valorAuditado) * 100);
     }
 
-    //======================================================
-    // INICIO
-    //======================================================
+    // Cobertura
+    const cobertura = totalEmpresa > 0 ? (auditados / totalEmpresa) * 100 : 0;
 
-    init(){
+    // Cumplimiento
+    const cumplimiento = programados > 0 ? (auditados / programados) * 100 : 0;
 
-    this.cargarDOM();
-
-    if(!this.validarDOM()){
-
-        console.error(
-            "No se encontró el HTML del módulo."
-        );
-
-        return;
-
+    // Confiabilidad de Ajustes
+    let ajustes = 100;
+    if (valorInventario > 0) {
+      ajustes = Math.max(0, 100 - (valorAjustes / valorInventario) * 100);
     }
 
-
-    this.eventos();
-
-this.actualizarDashboardInicial();
-
-this.cargarAnalisis();
-
-}
-    //======================================================
-    // CARGAR HTML
-    //======================================================
-
-    cargarDOM(){
-
-        const $ = id =>
-
-        document.getElementById(id);
-
-        //=========================
-        // MODAL
-        //=========================
-
-        this.dom.modal =
-
-        $("modalConfiabilidad");
-
-        this.dom.btnNuevo =
-
-        $("btnNuevoAnalisis");
-
-        this.dom.btnCerrar =
-
-        $("cerrarModalConfiabilidad");
-
-        this.dom.btnCancelar =
-
-        $("cancelarAnalisis");
-
-        this.dom.btnGuardar =
-
-        $("guardarAnalisis");
-
-        //=========================
-        // TABLA
-        //=========================
-
-        this.dom.tabla =
-
-        $("tablaConfiabilidad");
-
-        this.dom.buscar =
-
-        $("buscarAnalisis");
-
-        //=========================
-        // ALERTAS
-        //=========================
-
-        this.dom.alertas =
-
-        $("contenedorAlertas");
-
-        //=========================
-        // DIAGNOSTICO
-        //=========================
-
-        this.dom.diagnostico =
-
-        $("diagnosticoTexto");
-
-        this.dom.estadoDiagnostico =
-
-        $("diagnosticoEstado");
-
-
-            //=========================
-        // DASHBOARD
-        //=========================
-
-        this.dashboard.indice =
-        $("indiceGeneral");
-
-        this.dashboard.estado =
-        $("estadoGeneral");
-
-        this.dashboard.mensaje =
-        $("mensajeGeneral");
-
-        this.dashboard.fisica =
-        $("kpiFisica");
-
-        this.dashboard.economica =
-        $("kpiEconomica");
-
-        this.dashboard.cobertura =
-        $("kpiCobertura");
-
-        this.dashboard.cumplimiento =
-        $("kpiCumplimiento");
-
-        this.dashboard.ajustes =
-        $("kpiAjustes");
-
-        this.dashboard.ejecutados =
-        $("kpiEjecutados");
-
-        this.dashboard.meta =
-        $("metaAnual");
-
-        this.dashboard.auditados =
-        $("auditadosAcumulados");
-
-        this.dashboard.pendientes =
-        $("pendientesAnuales");
-
-        this.dashboard.acumulado =
-        $("indiceAcumulado");
-
-        this.dashboard.avanceTexto =
-        $("avanceTexto");
-
-        this.dashboard.avancePorcentaje =
-        $("avancePorcentaje");
-
-        this.dashboard.avanceBarra =
-        $("avanceBarra");
-
-        //=========================
-        // PREVIEW
-        //=========================
-
-        this.preview.indice =
-        $("previewIndice");
-
-        this.preview.fisica =
-        $("previewFisica");
-
-        this.preview.economica =
-        $("previewEconomica");
-
-        this.preview.cobertura =
-        $("previewCobertura");
-
-        this.preview.cumplimiento =
-        $("previewCumplimiento");
-
-        this.preview.ajustes =
-        $("previewAjustes");
-
-        this.preview.estado =
-        $("previewEstado");
-
-        //=========================
-        // FORMULARIO
-        //=========================
-
-        this.form.anio =
-        $("anioInput");
-
-        this.form.mes =
-        $("mesInput");
-
-        this.form.nombre =
-        $("nombreInventarioInput");
-
-        this.form.total =
-        $("totalEmpresaInput");
-
-        this.form.programados =
-        $("programadosInput");
-
-        this.form.auditados =
-        $("auditadosInput");
-
-        this.form.correctos =
-        $("correctosInput");
-
-        this.form.sobrantes =
-        $("sobrantesInput");
-
-        this.form.faltantes =
-        $("faltantesInput");
-
-        this.form.valorInventario =
-        $("valorInventarioInput");
-
-        this.form.valorAuditado =
-        $("valorAuditadoInput");
-
-        this.form.valorDiferencias =
-        $("valorDiferenciasInput");
-
-        this.form.valorAjustes =
-        $("valorAjustesInput");
-
-    }
-
-    //======================================================
-    // VALIDAR HTML
-    //======================================================
-
-    validarDOM(){
-
-        return (
-
-            Object.values(this.dom).every(Boolean)
-
-            &&
-
-            Object.values(this.dashboard).every(Boolean)
-
-            &&
-
-            Object.values(this.preview).every(Boolean)
-
-            &&
-
-            Object.values(this.form).every(Boolean)
-
-        );
-
-    }
-
-    //======================================================
-    // EVENTOS
-    //======================================================
-
-    eventos(){
-
-        //=========================
-        // BOTONES
-        //=========================
-
-        this.dom.btnNuevo.addEventListener(
-
-            "click",
-
-            () => this.abrirModal()
-
-        );
-
-        this.dom.btnCerrar.addEventListener(
-
-            "click",
-
-            () => this.cerrarModal()
-
-        );
-
-        this.dom.btnCancelar.addEventListener(
-
-            "click",
-
-            () => this.cerrarModal()
-
-        );
-
-        //=========================
-        // CERRAR AL HACER CLICK AFUERA
-        //=========================
-
-        this.dom.modal.addEventListener(
-
-            "click",
-
-            (e)=>{
-
-                if(e.target===this.dom.modal){
-
-                    this.cerrarModal();
-
-                }
-
-            }
-
-        );
-
-        //=========================
-        // INPUTS
-        //=========================
-
-        Object.values(this.form).forEach(campo=>{
-
-            if(!campo) return;
-
-            campo.addEventListener(
-
-                "input",
-
-                ()=>this.actualizarPreview()
-
-            );
-
-            if(campo.tagName==="SELECT"){
-
-                campo.addEventListener(
-
-                    "change",
-
-                    ()=>this.actualizarPreview()
-
-                );
-
-            }
-
-        });
-
-        //=========================
-        // GUARDAR
-        //=========================
-
-        this.dom.btnGuardar.addEventListener(
-
-            "click",
-
-            ()=>this.guardar()
-
-        );
-
-        //=========================
-        // BUSCADOR
-        //=========================
-
-        this.dom.buscar.addEventListener(
-
-            "input",
-
-            ()=>this.buscar()
-
-        );
-
-    }
-
-    //======================================================
-    // MODAL
-    //======================================================
-
-    abrirModal(){
-
-    this.dom.modal.classList.add("active");
-
-    document.body.style.overflow = "hidden";
-
-}
-
-//======================================================
-// CERRAR MODAL
-//======================================================
-
-cerrarModal(){
-
-    this.dom.modal.classList.remove("active");
-
-    document.body.style.overflow = "";
-
-    this.state.editando = false;
-
-    this.state.indiceEditar = null;
-
-    this.dom.btnGuardar.style.display = "";
-
-    this.dom.btnGuardar.innerHTML = `
-        ${ICONOS.guardar}
-        Guardar Análisis
-    `;
-
-}
-    //======================================================
-    // UTILIDADES
-    //======================================================
-
-    numero(valor){
-
-        return Number(valor)||0;
-
-    }
-
-    porcentaje(valor){
-
-        return Number(valor).toFixed(2)+"%";
-
-    }
-
-    //======================================================
-    // LEER FORMULARIO
-    //======================================================
-
-    obtenerDatos(){
-
-        return{
-
-            anio:this.numero(this.form.anio.value),
-
-            mes:this.form.mes.value,
-
-            nombre:this.form.nombre.value.trim(),
-
-            totalEmpresa:this.numero(this.form.total.value),
-
-            programados:this.numero(this.form.programados.value),
-
-            auditados:this.numero(this.form.auditados.value),
-
-            correctos:this.numero(this.form.correctos.value),
-
-            sobrantes:this.numero(this.form.sobrantes.value),
-
-            faltantes:this.numero(this.form.faltantes.value),
-
-            valorInventario:this.numero(
-                this.form.valorInventario.value
-            ),
-
-            valorAuditado:this.numero(
-                this.form.valorAuditado.value
-            ),
-
-            valorDiferencias:this.numero(
-                this.form.valorDiferencias.value
-            ),
-
-            valorAjustes:this.numero(
-                this.form.valorAjustes.value
-            )
-
-        };
-
-    }
-
-  
-
-    //======================================================
-    // VALIDAR FORMULARIO
-    //======================================================
-
-    validar(datos){
-
-        if(datos.nombre===""){
-
-            notifAlert("Ingrese el nombre del inventario.");
-
-            return false;
-
-        }
-
-        if(datos.programados>datos.totalEmpresa){
-
-            notifAlert("Los programados no pueden superar el total empresa.");
-
-            return false;
-
-        }
-
-        if(datos.auditados>datos.programados){
-
-            notifAlert("Los auditados no pueden superar los programados.");
-
-            return false;
-
-        }
-
-        if(datos.correctos>datos.auditados){
-
-            notifAlert("Los correctos no pueden superar los auditados.");
-
-            return false;
-
-        }
-
-        if(
-
-            datos.sobrantes +
-
-            datos.faltantes >
-
-            datos.auditados
-
-        ){
-
-            notifAlert(
-
-                "Sobrantes + Faltantes no pueden superar los auditados."
-
-            );
-
-            return false;
-
-        }
-
-        if(
-
-            datos.valorAuditado >
-
-            datos.valorInventario
-
-        ){
-
-            notifAlert(
-
-                "El valor auditado no puede superar el valor inventario."
-
-            );
-
-            return false;
-
-        }
-
-        return true;
-
-    }
-
-
-
-   //======================================================
-// CALCULAR INDICADORES
-//======================================================
-
-calcular(datos){
-
-    //=========================================
-    // SI AÚN NO SE HA AUDITADO NADA
-    // NO SE CALCULAN LOS INDICADORES
-    //=========================================
-
-    if (datos.auditados === 0) {
-
-        return {
-
-            cobertura: 0,
-
-            cumplimiento: 0,
-
-            fisica: 0,
-
-            economica: 0,
-
-            ajustes: 0,
-
-            indice: 0
-
-        };
-
-    }
-
-    const cobertura =
-
-        datos.totalEmpresa>0
-
-        ? (datos.auditados/datos.totalEmpresa)*100
-
-        :0;
-
-    const cumplimiento =
-
-            datos.programados>0
-
-            ? (datos.auditados/datos.programados)*100
-
-            :0;
-
-        const fisica =
-
-            datos.auditados>0
-
-            ? (datos.correctos/datos.auditados)*100
-
-            :0;
-
-        const economica =
-
-            datos.valorAuditado>0
-
-            ? (
-
-                (datos.valorAuditado-datos.valorDiferencias)
-
-                /datos.valorAuditado
-
-            )*100
-
-            :0;
-
-        const ajustes =
-
-            datos.valorInventario>0
-
-            ?(
-
-                (datos.valorInventario-datos.valorAjustes)
-
-                /datos.valorInventario
-
-            )*100
-
-            :0;
-
-        const indice =
-
-            fisica*0.35+
-
-            economica*0.35+
-
-            ajustes*0.15+
-
-            cobertura*0.10+
-
-            cumplimiento*0.05;
-
-        return{
-
-            cobertura,
-
-            cumplimiento,
-
-            fisica,
-
-            economica,
-
-            ajustes,
-
-            indice
-
-        };
-
-    }
-
-    //======================================================
-    // ESTADO DEL ÍNDICE
-    //======================================================
-
-    obtenerEstado(indice){
-
-        if(indice >= 98){
-
-            return{
-
-                nombre:"EXCELENTE",
-
-                clase:"excelente",
-
-                mensaje:"La confiabilidad del inventario es excelente."
-
-            };
-
-        }
-
-        if(indice >= 95){
-
-            return{
-
-                nombre:"MUY BUENA",
-
-                clase:"buena",
-
-                mensaje:"La confiabilidad del inventario es muy buena."
-
-            };
-
-        }
-
-        if(indice >= 90){
-
-            return{
-
-                nombre:"BUENA",
-
-                clase:"normal",
-
-                mensaje:"La confiabilidad del inventario es buena."
-
-            };
-
-        }
-
-        if(indice >= 80){
-
-            return{
-
-                nombre:"CRÍTICA",
-
-                clase:"critica",
-
-                mensaje:"La confiabilidad requiere atención."
-
-            };
-
-        }
-
-        return{
-
-            nombre:"ALARMANTE",
-
-            clase:"alarmante",
-
-            mensaje:"Se recomienda intervenir inmediatamente."
-
-        };
-
-    }
-
-    //======================================================
-    // ACTUALIZAR PREVIEW
-    //======================================================
-
-   actualizarPreview(){
-
-    const datos = this.obtenerDatos();
-
-    const indicadores = this.calcular(datos);
-
-    this.preview.indice.textContent =
-    this.porcentaje(indicadores.indice);
-
-    this.preview.fisica.textContent =
-    this.porcentaje(indicadores.fisica);
-
-    this.preview.economica.textContent =
-    this.porcentaje(indicadores.economica);
-
-    this.preview.cobertura.textContent =
-    this.porcentaje(indicadores.cobertura);
-
-    this.preview.cumplimiento.textContent =
-    this.porcentaje(indicadores.cumplimiento);
-
-    this.preview.ajustes.textContent =
-    this.porcentaje(indicadores.ajustes);
-
-    const estado = this.obtenerEstado(
-        indicadores.indice
-    );
-
-    this.preview.estado.textContent =
-    estado.nombre;
-
-    this.preview.estado.className =
-    `conf-preview-status ${estado.clase}`;
-
-    this.actualizarDashboard(indicadores);
-
-}
-
-    //======================================================
-    // DASHBOARD
-    //======================================================
-
-    actualizarDashboard(indicadores){
-
-        const estado = this.obtenerEstado(
-            indicadores.indice
-        );
-
-        this.dashboard.indice.textContent =
-        this.porcentaje(indicadores.indice);
-
-        this.dashboard.fisica.textContent =
-        this.porcentaje(indicadores.fisica);
-
-        this.dashboard.economica.textContent =
-        this.porcentaje(indicadores.economica);
-
-        this.dashboard.cobertura.textContent =
-        this.porcentaje(indicadores.cobertura);
-
-        this.dashboard.cumplimiento.textContent =
-        this.porcentaje(indicadores.cumplimiento);
-
-        this.dashboard.ajustes.textContent =
-        this.porcentaje(indicadores.ajustes);
-
-        this.dashboard.estado.textContent =
-        estado.nombre;
-
-        this.dashboard.estado.className =
-        `conf-indice-estado ${estado.clase}`;
-
-        this.dashboard.mensaje.textContent =
-        estado.mensaje;
-
-    }
-
-    //======================================================
-    // DASHBOARD INICIAL
-    //======================================================
-
-    actualizarDashboardInicial(){
-
-        this.actualizarDashboard({
-
-            indice:0,
-
-            fisica:0,
-
-            economica:0,
-
-            cobertura:0,
-
-            cumplimiento:0,
-
-            ajustes:0
-
-        });
-
-    }
-
-//======================================================
-// GUARDAR / ACTUALIZAR
-//======================================================
-async guardar(){
-
-    const datos = this.obtenerDatos();
-
-    if(!this.validar(datos)){
-        return;
-    }
-
-    const indicadores = this.calcular(datos);
-
-    const usuarioLogueado =
-
-    JSON.parse(
-        localStorage.getItem("usuarioLogueado")
-    );
-
-    const analisis = {
-
-        anio: datos.anio,
-
-        mes: datos.mes,
-
-        nombre: datos.nombre,
-
-        total_empresa: datos.totalEmpresa,
-
-        programados: datos.programados,
-
-        auditados: datos.auditados,
-
-        correctos: datos.correctos,
-
-        sobrantes: datos.sobrantes,
-
-        faltantes: datos.faltantes,
-
-        valor_inventario: datos.valorInventario,
-
-        valor_auditado: datos.valorAuditado,
-
-        valor_diferencias: datos.valorDiferencias,
-
-        valor_ajustes: datos.valorAjustes,
-
-        cobertura: indicadores.cobertura,
-
-        cumplimiento: indicadores.cumplimiento,
-
-        fisica: indicadores.fisica,
-
-        economica: indicadores.economica,
-
-        ajustes: indicadores.ajustes,
-
-        indice: indicadores.indice,
-
-        fecha: new Date(),
-
-        usuario: usuarioLogueado?.usuario || "Sistema"
-
+    // Índice General Ponderado
+    const indiceGeneral = (fisica * 0.35) + (economica * 0.35) + (cobertura * 0.15) + (cumplimiento * 0.15);
+
+    let estado = 'Excelente';
+    if (indiceGeneral < 70) estado = 'Crítico';
+    else if (indiceGeneral < 85) estado = 'Aceptable';
+    else if (indiceGeneral < 95) estado = 'Bueno';
+
+    return {
+      confiabilidad_fisica: fisica,
+      confiabilidad_economica: economica,
+      cobertura: Math.min(cobertura, 100),
+      cumplimiento: Math.min(cumplimiento, 100),
+      confiabilidad_ajustes: ajustes,
+      indice_general: indiceGeneral,
+      estado
+    };
+  }
+
+  function actualizarPreviewEnVivo() {
+    const datosForm = {
+      total_empresa: getVal('totalEmpresaInput'),
+      programados: getVal('programadosInput'),
+      auditados: getVal('auditadosInput'),
+      correctos: getVal('correctosInput'),
+      valor_inventario: getVal('valorInventarioInput'),
+      valor_auditado: getVal('valorAuditadoInput'),
+      valor_diferencias: getVal('valorDiferenciasInput'),
+      valor_ajustes: getVal('valorAjustesInput')
     };
 
-    const { error } =
+    const res = calcularMetricas(datosForm);
 
-    await window.supabaseClient
+    const setT = (id, val) => { const el = $(id); if (el) el.innerText = val; };
+    setT('previewIndice', formatearPorcentaje(res.indice_general));
+    setT('previewFisica', formatearPorcentaje(res.confiabilidad_fisica));
+    setT('previewEconomica', formatearPorcentaje(res.confiabilidad_economica));
+    setT('previewCobertura', formatearPorcentaje(res.cobertura));
+    setT('previewCumplimiento', formatearPorcentaje(res.cumplimiento));
+    setT('previewAjustes', formatearPorcentaje(res.confiabilidad_ajustes));
 
-    .from("confiabilidad_inventario")
+    const estEl = $('previewEstado');
+    if (estEl) {
+      estEl.innerText = `Estado: ${res.estado}`;
+      estEl.style.color = res.indice_general >= 90 ? '#10b981' : res.indice_general >= 75 ? '#f59e0b' : '#ef4444';
+    }
+  }
 
-    .insert([analisis]);
-
-    if(error){
-
-        console.error(error);
-
-        notifAlert(error.message);
-
-        return;
-
+  // ==================================================================
+  // 2. CARGA Y CONSULTA DESDE SUPABASE
+  // ==================================================================
+  window.renderConfiabilidad = async function () {
+    if (!window.supabaseClient) {
+      confiabilidadCache = JSON.parse(localStorage.getItem('confiabilidadInventario')) || [];
+      renderTabla(confiabilidadCache);
+      actualizarDashboardGeneral(confiabilidadCache);
+      return;
     }
 
-    notifAlert("Análisis guardado correctamente.");
+    try {
+      const { data, error } = await window.supabaseClient
+        .from('confiabilidad')
+        .select('*')
+        .order('id', { ascending: false });
 
-   await this.cargarAnalisis();
-
-this.actualizarResumen();
-
-this.limpiarFormulario();
-
-this.cerrarModal();
-
-}
-
-
-   
-  guardarLocal(){
-
-    localStorage.setItem(
-
-        "confiabilidadInventario",
-
-        JSON.stringify(
-
-            this.state.analisis
-
-        )
-
-    );
-
-}
-
-//======================================================
-// CARGAR DESDE SUPABASE
-//======================================================
-
-async cargarAnalisis(){
-
-    const { data, error } = await window.supabaseClient
-
-        .from("confiabilidad_inventario")
-
-        .select("*")
-
-        .order("id", { ascending: false });
-
-    if(error){
-
-        console.error(error);
-
+      if (error) {
+        console.error('Error consultando confiabilidad:', error.message);
         return;
+      }
 
+      confiabilidadCache = data || [];
+      localStorage.setItem('confiabilidadInventario', JSON.stringify(confiabilidadCache));
+
+      renderTabla(confiabilidadCache);
+      actualizarDashboardGeneral(confiabilidadCache);
+
+    } catch (err) {
+      console.error('Excepción en renderConfiabilidad:', err);
+    }
+  };
+
+  function renderTabla(lista) {
+    const tbody = $('tablaConfiabilidad');
+    if (!tbody) return;
+
+    if (lista.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" class="conf-table-empty"><p>Aún no existen análisis de confiabilidad registrados.</p></td></tr>`;
+      return;
     }
 
-    this.state.analisis = data || [];
+    const rol = (window.usuarioLogueado?.rol || '').toLowerCase();
+    const puedeEditar = ['admin', 'auditor', 'lider'].includes(rol);
+    const puedeEliminar = ['admin', 'auditor'].includes(rol);
 
-    this.renderHistorial();
+    tbody.innerHTML = lista.map(item => {
+      let estadoClass = 'estado-pendiente';
+      if (item.indice_general >= 90) estadoClass = 'estado-revisado';
+      else if (item.indice_general >= 75) estadoClass = 'estado-revision';
+      else estadoClass = 'estado-cerrado';
 
-    this.actualizarResumen();
+      const avanceConteo = Number(item.total_empresa) > 0 ? ((Number(item.auditados) / Number(item.total_empresa)) * 100).toFixed(1) : '0.0';
 
-}
+      return `
+        <tr>
+          <td><strong>${item.anio}</strong></td>
+          <td>${sanitize(item.mes)}</td>
+          <td><strong>${sanitize(item.nombre_inventario)}</strong></td>
+          <td>${item.auditados} / ${item.total_empresa} (${avanceConteo}%)</td>
+          <td><strong>${formatearPorcentaje(item.indice_general)}</strong></td>
+          <td><span class="${estadoClass}">${sanitize(item.estado)}</span></td>
+          <td>${new Date(item.created_at).toLocaleDateString('es-CO')}</td>
+          <td>${sanitize(item.usuario || 'Sistema')}</td>
+          <td>
+            <div class="acciones-tabla-mini">
+              ${puedeEditar ? `
+                <button type="button" class="btn-mini" onclick="window.editarAnalisis(${item.id})" title="Editar">✏️</button>
+              ` : ''}
+              ${puedeEliminar ? `
+                <button type="button" class="btn-mini" onclick="window.eliminarAnalisis(${item.id})" title="Eliminar">🗑️</button>
+              ` : ''}
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
 
-   //======================================================
-// LIMPIAR FORMULARIO
-//======================================================
+  function actualizarDashboardGeneral(lista) {
+    if (lista.length === 0) {
+      const setT = (id, val) => { const el = $(id); if (el) el.innerText = val; };
+      setT('kpiFisica', '0.00%');
+      setT('kpiEconomica', '0.00%');
+      setT('kpiCobertura', '0.00%');
+      setT('kpiCumplimiento', '0.00%');
+      setT('kpiAjustes', '0.00%');
+      setT('kpiEjecutados', '0');
+      setT('indiceGeneral', '0.00%');
+      setT('estadoGeneral', 'Sin información');
+      setT('mensajeGeneral', 'Registre un análisis para comenzar.');
+      setT('avanceTexto', '0 / 0 Ítems');
+      setT('avancePorcentaje', '0%');
+      setT('metaAnual', '0');
+      setT('auditadosAcumulados', '0');
+      setT('pendientesAnuales', '0');
+      setT('indiceAcumulado', '0.00%');
+      return;
+    }
 
-limpiarFormulario(){
+    const ult = lista[0];
+    const totalEjecutados = lista.length;
 
-    Object.values(this.form).forEach(campo=>{
+    // Promedios acumulados
+    let sumFis = 0, sumEco = 0, sumCob = 0, sumCum = 0, sumAju = 0, sumInd = 0;
+    let totalItemsMeta = 0, totalItemsAudit = 0;
 
-        if(!campo) return;
-
-        if(campo.tagName==="SELECT"){
-
-            campo.selectedIndex=0;
-
-        }else{
-
-            campo.value="";
-
-        }
-
+    lista.forEach(i => {
+      sumFis += Number(i.confiabilidad_fisica || 0);
+      sumEco += Number(i.confiabilidad_economica || 0);
+      sumCob += Number(i.cobertura || 0);
+      sumCum += Number(i.cumplimiento || 0);
+      sumAju += Number(i.confiabilidad_ajustes || 0);
+      sumInd += Number(i.indice_general || 0);
+      totalItemsMeta += Number(i.total_empresa || 0);
+      totalItemsAudit += Number(i.auditados || 0);
     });
 
-}
-//======================================================
-// HISTORIAL
-//======================================================
+    const avgInd = sumInd / totalEjecutados;
+    const avgFis = sumFis / totalEjecutados;
+    const avgEco = sumEco / totalEjecutados;
+    const avgCob = sumCob / totalEjecutados;
+    const avgCum = sumCum / totalEjecutados;
+    const avgAju = sumAju / totalEjecutados;
 
-renderHistorial(){
+    const setT = (id, val) => { const el = $(id); if (el) el.innerText = val; };
+    setT('kpiFisica', formatearPorcentaje(ult.confiabilidad_fisica));
+    setT('kpiEconomica', formatearPorcentaje(ult.confiabilidad_economica));
+    setT('kpiCobertura', formatearPorcentaje(ult.cobertura));
+    setT('kpiCumplimiento', formatearPorcentaje(ult.cumplimiento));
+    setT('kpiAjustes', formatearPorcentaje(ult.confiabilidad_ajustes));
+    setT('kpiEjecutados', totalEjecutados.toString());
 
-    if(!this.dom.tabla){
+    setT('indiceGeneral', formatearPorcentaje(ult.indice_general));
+    setT('estadoGeneral', `Estado: ${ult.estado}`);
+    setT('mensajeGeneral', `Último análisis: ${ult.nombre_inventario} (${ult.mes} ${ult.anio})`);
 
+    const avancePct = totalItemsMeta > 0 ? ((totalItemsAudit / totalItemsMeta) * 100).toFixed(1) : '0';
+    setT('avanceTexto', `${totalItemsAudit.toLocaleString()} / ${totalItemsMeta.toLocaleString()} Ítems`);
+    setT('avancePorcentaje', `${avancePct}%`);
+
+    const barra = $('avanceBarra');
+    if (barra) barra.style.width = `${Math.min(Number(avancePct), 100)}%`;
+
+    setT('metaAnual', totalItemsMeta.toLocaleString());
+    setT('auditadosAcumulados', totalItemsAudit.toLocaleString());
+    setT('pendientesAnuales', Math.max(0, totalItemsMeta - totalItemsAudit).toLocaleString());
+    setT('indiceAcumulado', formatearPorcentaje(avgInd));
+
+    // Diagnóstico Ejecutivo Inteligente
+    const diagTexto = $('diagnosticoTexto');
+    const diagEstado = $('diagnosticoEstado');
+    if (diagTexto && diagEstado) {
+      diagEstado.innerText = ult.estado;
+      diagEstado.className = `conf-diagnostico-status ${ult.indice_general >= 85 ? 'success' : ult.indice_general >= 70 ? 'warning' : 'danger'}`;
+      diagTexto.innerHTML = `
+        El análisis para <strong>${sanitize(ult.nombre_inventario)}</strong> arroja un índice general del <strong>${formatearPorcentaje(ult.indice_general)}</strong>. 
+        La exactitud física es del <strong>${formatearPorcentaje(ult.confiabilidad_fisica)}</strong> con <strong>${ult.correctos}</strong> ítems exactos sobre <strong>${ult.auditados}</strong> auditados. 
+        El impacto económico por diferencias suma <strong>${formatearMoneda(ult.valor_diferencias)}</strong> frente a una muestra auditada de <strong>${formatearMoneda(ult.valor_auditado)}</strong>.
+      `;
+    }
+
+    // Alertas
+    const contAlertas = $('contenedorAlertas');
+    if (contAlertas) {
+      const alertas = [];
+      if (Number(ult.faltantes) > 0) alertas.push(`⚠️ Se detectaron ${ult.faltantes} discrepancias faltantes en ${ult.nombre_inventario}.`);
+      if (Number(ult.sobrantes) > 0) alertas.push(`🔵 Se detectaron ${ult.sobrantes} excedentes no justificados.`);
+      if (ult.confiabilidad_fisica < 80) alertas.push(`🔴 Alerta Crítica: Confiabilidad física por debajo del umbral mínimo (80%).`);
+
+      if (alertas.length === 0) {
+        contAlertas.innerHTML = `<div class="conf-alert-empty"><span>🟢 Operación dentro de parámetros nominales de confiabilidad.</span></div>`;
+      } else {
+        contAlertas.innerHTML = alertas.map(a => `<div class="conf-alert-item">${a}</div>`).join('');
+      }
+    }
+  }
+
+  // ==================================================================
+  // 3. GUARDAR / EDITAR ANÁLISIS
+  // ==================================================================
+  window.abrirNuevoAnalisis = function () {
+    analisisEnEdicionId = null;
+    setVal('anioInput', new Date().getFullYear());
+    setVal('mesInput', 'Enero');
+    setVal('nombreInventarioInput', '');
+    setVal('totalEmpresaInput', '0');
+    setVal('programadosInput', '0');
+    setVal('auditadosInput', '0');
+    setVal('correctosInput', '0');
+    setVal('sobrantesInput', '0');
+    setVal('faltantesInput', '0');
+    setVal('valorInventarioInput', '0');
+    setVal('valorAuditadoInput', '0');
+    setVal('valorDiferenciasInput', '0');
+    setVal('valorAjustesInput', '0');
+
+    actualizarPreviewEnVivo();
+    const modal = $('modalConfiabilidad');
+    if (modal) modal.style.display = 'flex';
+  };
+
+  window.cerrarModalConfiabilidad = function () {
+    const modal = $('modalConfiabilidad');
+    if (modal) modal.style.display = 'none';
+  };
+
+  async function guardarAnalisis() {
+    const btn = $('guardarAnalisis');
+    try {
+      const anio = Number(getVal('anioInput')) || new Date().getFullYear();
+      const mes = getVal('mesInput') || 'Enero';
+      const nombreInventario = getVal('nombreInventarioInput').trim();
+
+      if (!nombreInventario) {
+        notificar('Ingrese el nombre o descripción del inventario.');
         return;
+      }
 
+      const raw = {
+        anio,
+        mes,
+        nombre_inventario: nombreInventario,
+        total_empresa: Number(getVal('totalEmpresaInput')) || 0,
+        programados: Number(getVal('programadosInput')) || 0,
+        auditados: Number(getVal('auditadosInput')) || 0,
+        correctos: Number(getVal('correctosInput')) || 0,
+        sobrantes: Number(getVal('sobrantesInput')) || 0,
+        faltantes: Number(getVal('faltantesInput')) || 0,
+        valor_inventario: Number(getVal('valorInventarioInput')) || 0,
+        valor_auditado: Number(getVal('valorAuditadoInput')) || 0,
+        valor_diferencias: Number(getVal('valorDiferenciasInput')) || 0,
+        valor_ajustes: Number(getVal('valorAjustesInput')) || 0,
+        usuario: window.usuarioLogueado?.usuario || 'Sistema'
+      };
+
+      const metricas = calcularMetricas(raw);
+      const payload = { ...raw, ...metricas };
+
+      if (btn) btn.disabled = true;
+
+      if (window.supabaseClient) {
+        if (analisisEnEdicionId) {
+          const { error } = await window.supabaseClient
+            .from('confiabilidad')
+            .update(payload)
+            .eq('id', analisisEnEdicionId);
+          if (error) throw error;
+        } else {
+          const { error } = await window.supabaseClient
+            .from('confiabilidad')
+            .insert([payload]);
+          if (error) throw error;
+        }
+      }
+
+      if (typeof window.guardarHistorial === 'function') {
+        await window.guardarHistorial('CONFIABILIDAD', 'INVENTARIO', `Análisis guardado: ${nombreInventario} (${mes} ${anio}) - Índice: ${metricas.indice_general.toFixed(1)}%`);
+      }
+
+      if (typeof window.crearNotificacion === 'function') {
+        window.crearNotificacion(`📊 Confiabilidad guardada: ${nombreInventario} (${mes} ${anio}) - ${metricas.indice_general.toFixed(1)}%`, 'success');
+      }
+
+      window.cerrarModalConfiabilidad();
+      await window.renderConfiabilidad();
+      notificar('Análisis guardado exitosamente.', 'success');
+
+    } catch (err) {
+      console.error(err);
+      notificar('Error al guardar análisis: ' + err.message, 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  window.editarAnalisis = function (id) {
+    const item = confiabilidadCache.find(a => a.id === Number(id));
+    if (!item) return;
+
+    analisisEnEdicionId = item.id;
+    setVal('anioInput', item.anio);
+    setVal('mesInput', item.mes);
+    setVal('nombreInventarioInput', item.nombre_inventario);
+    setVal('totalEmpresaInput', item.total_empresa);
+    setVal('programadosInput', item.programados);
+    setVal('auditadosInput', item.auditados);
+    setVal('correctosInput', item.correctos);
+    setVal('sobrantesInput', item.sobrantes);
+    setVal('faltantesInput', item.faltantes);
+    setVal('valorInventarioInput', item.valor_inventario);
+    setVal('valorAuditadoInput', item.valor_auditado);
+    setVal('valorDiferenciasInput', item.valor_diferencias);
+    setVal('valorAjustesInput', item.valor_ajustes);
+
+    actualizarPreviewEnVivo();
+    const modal = $('modalConfiabilidad');
+    if (modal) modal.style.display = 'flex';
+  };
+
+  window.eliminarAnalisis = async function (id) {
+    if (typeof window.tienePermiso === 'function' && !window.tienePermiso('confiabilidad', 'eliminar')) {
+      notificar('No cuenta con permisos para eliminar análisis.');
+      return;
     }
 
-    if(this.state.analisis.length===0){
+    if (!confirm('¿Desea eliminar definitivamente este análisis de confiabilidad?')) return;
 
-        this.dom.tabla.innerHTML=`
+    if (window.supabaseClient) {
+      await window.supabaseClient.from('confiabilidad').delete().eq('id', Number(id));
+    }
 
-            <tr>
+    await window.renderConfiabilidad();
+    notificar('Análisis eliminado del sistema.', 'success');
+  };
 
-                <td colspan="9" class="conf-table-empty">
+  // ==================================================================
+  // 4. EXPORTACIÓN A EXCEL Y PDF
+  // ==================================================================
+  function exportarExcel() {
+    if (confiabilidadCache.length === 0) {
+      notificar('No hay registros de confiabilidad para exportar.');
+      return;
+    }
 
-                    ${ICONOS.cajaAbierta}
+    const data = confiabilidadCache.map(c => ({
+      'Año': c.anio,
+      'Mes': c.mes,
+      'Nombre Inventario': c.nombre_inventario,
+      'Total Ítems': c.total_empresa,
+      'Programados': c.programados,
+      'Auditados': c.auditados,
+      'Correctos': c.correctos,
+      'Sobrantes': c.sobrantes,
+      'Faltantes': c.faltantes,
+      'Confiabilidad Física %': Number(c.confiabilidad_fisica).toFixed(2),
+      'Confiabilidad Económica %': Number(c.confiabilidad_economica).toFixed(2),
+      'Cobertura %': Number(c.cobertura).toFixed(2),
+      'Cumplimiento %': Number(c.cumplimiento).toFixed(2),
+      'Índice General %': Number(c.indice_general).toFixed(2),
+      'Estado': c.estado,
+      'Usuario': c.usuario || 'Sistema'
+    }));
 
-                    <p>Aún no existen análisis registrados.</p>
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Confiabilidad');
+    XLSX.writeFile(wb, `Confiabilidad_Inventario_${new Date().toISOString().split('T')[0]}.xlsx`);
 
-                </td>
+    notificar('Archivo Excel exportado.', 'success');
+  }
 
-            </tr>
+  function exportarPDF() {
+    window.print();
+  }
 
-        `;
-
+  // ==================================================================
+  // 5. EVENTOS Y DELEGACIÓN
+  // ==================================================================
+  document.addEventListener('input', function (e) {
+    if (e.target && e.target.closest('.conf-modal-form')) {
+      actualizarPreviewEnVivo();
+    }
+    if (e.target && e.target.id === 'buscarAnalisis') {
+      const q = e.target.value.toLowerCase().trim();
+      if (!q) {
+        renderTabla(confiabilidadCache);
         return;
-
+      }
+      const filtrados = confiabilidadCache.filter(a =>
+        String(a.nombre_inventario || '').toLowerCase().includes(q) ||
+        String(a.mes || '').toLowerCase().includes(q) ||
+        String(a.anio || '').includes(q) ||
+        String(a.estado || '').toLowerCase().includes(q)
+      );
+      renderTabla(filtrados);
     }
-
-    this.dom.tabla.innerHTML="";
-
-    this.state.analisis.forEach((item,index)=>{
-
-        const estado = this.obtenerEstado(item.indice);
-
-        const avance = item.programados > 0
-
-            ? (item.auditados / item.programados) * 100
-
-            : 0;
-
-        this.dom.tabla.innerHTML += `
-
-            <tr>
-
-                <td>${item.anio}</td>
-
-                <td>${item.mes}</td>
-
-                <td>${item.nombre}</td>
-
-                <td>
-
-                    <strong>
-
-                        ${item.auditados} / ${item.programados}
-
-                    </strong>
-
-                    <small>
-
-                        ${this.porcentaje(avance)}
-
-                    </small>
-
-                    <div class="conf-progress-bar">
-
-                        <div
-                            class="conf-progress-fill"
-                            style="width:${Math.min(avance,100)}%">
-
-                        </div>
-
-                    </div>
-
-                </td>
-
-                <td>
-
-                    ${this.porcentaje(item.indice)}
-
-                </td>
-
-                <td>
-
-                    <span class="conf-estado ${estado.clase}">
-
-                        ${estado.nombre}
-
-                    </span>
-
-                </td>
-
-                <td>${item.fecha}</td>
-
-                <td>${item.usuario}</td>
-
-                <td>
-
-                    <div class="conf-table-actions">
-
-                        <button
-                            class="conf-btn-table ver"
-                            data-ver="${index}"
-                            title="Ver">
-
-                            ${ICONOS.ojo}
-
-                        </button>
-
-                        <button
-                            class="conf-btn-table editar"
-                            data-editar="${index}"
-                            title="Editar">
-
-                            ${ICONOS.lapiz}
-
-                        </button>
-
-                        <button
-                            class="conf-btn-table eliminar"
-                            data-eliminar="${index}"
-                            title="Eliminar">
-
-                            ${ICONOS.papelera}
-
-                        </button>
-
-                    </div>
-
-                </td>
-
-            </tr>
-
-        `;
-
-    });
-
-    this.eventosTabla();
-
-}
- //======================================================
-// EVENTOS TABLA
-//======================================================
-
-eventosTabla(){
-
-    //=========================
-    // VER
-    //=========================
-    this.dom.tabla
-    .querySelectorAll("[data-ver]")
-    .forEach(boton=>{
-
-        boton.addEventListener("click",()=>{
-
-            this.verAnalisis(
-                Number(boton.dataset.ver)
-            );
-
-        });
-
-    });
-
-    //=========================
-    // EDITAR
-    //=========================
-    this.dom.tabla
-    .querySelectorAll("[data-editar]")
-    .forEach(boton=>{
-
-        boton.addEventListener("click",()=>{
-
-            this.editarAnalisis(
-                Number(boton.dataset.editar)
-            );
-
-        });
-
-    });
-
-    //=========================
-    // ELIMINAR
-    //=========================
-    this.dom.tabla
-    .querySelectorAll("[data-eliminar]")
-    .forEach(boton=>{
-
-        boton.addEventListener("click",()=>{
-
-            this.eliminarAnalisis(
-                Number(boton.dataset.eliminar)
-            );
-
-        });
-
-    });
-
-}
-    
-        //======================================================
-    // RESUMEN EJECUTIVO
-    //======================================================
-
-    actualizarResumen(){
-
-        const total = this.state.analisis.length;
-
-        if(total===0){
-
-            this.dashboard.ejecutados.textContent="0";
-
-            this.dashboard.meta.textContent="0";
-
-            this.dashboard.auditados.textContent="0";
-
-            this.dashboard.pendientes.textContent="0";
-
-            this.dashboard.acumulado.textContent="0.00%";
-
-            this.dashboard.avanceTexto.textContent="0 / 0 Ítems";
-
-            this.dashboard.avancePorcentaje.textContent="0.00%";
-
-            this.dashboard.avanceBarra.style.width="0%";
-
-            return;
-
-        }
-
-        const ultimo=this.state.analisis[total-1];
-
-        const meta=ultimo.total_empresa;
-
-       const auditados = this.state.analisis.reduce(
-    (suma, item) => suma + (Number(item.auditados) || 0),
-    0
-);
-
-      const pendientes = meta - auditados;
-
-this.dashboard.pendientes.textContent =
-pendientes > 0 ? pendientes : 0;
-
-        const promedio=this.state.analisis.reduce(
-
-            (suma,item)=>suma+item.indice,
-
-            0
-
-        )/total;
-
-        const avance=
-
-            meta>0
-
-            ? (auditados/meta)*100
-
-            :0;
-
-        this.dashboard.ejecutados.textContent=total;
-
-        this.dashboard.meta.textContent=meta;
-
-        this.dashboard.auditados.textContent=auditados;
-
-        this.dashboard.pendientes.textContent=pendientes;
-
-        this.dashboard.acumulado.textContent=
-
-            this.porcentaje(promedio);
-
-        this.dashboard.avanceTexto.textContent=
-
-            `${auditados} / ${meta} Ítems`;
-
-        this.dashboard.avancePorcentaje.textContent=
-
-            this.porcentaje(avance);
-
-        this.dashboard.avanceBarra.style.width=
-
-            Math.min(avance,100)+"%";
-
+  });
+
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('#btnNuevoAnalisis')) {
+      e.preventDefault();
+      window.abrirNuevoAnalisis();
     }
-
-    //======================================================
-    // DIAGNÓSTICO
-    //======================================================
-
-    actualizarDiagnostico(indicadores){
-
-        if(!this.dom.diagnostico){
-
-            return;
-
-        }
-
-        const estado=this.obtenerEstado(
-
-            indicadores.indice
-
-        );
-
-        this.dom.estadoDiagnostico.textContent=
-
-            estado.nombre;
-
-        this.dom.estadoDiagnostico.className=
-
-            `conf-diagnostico-status ${estado.clase}`;
-
-        this.dom.diagnostico.textContent=
-
-            estado.mensaje;
-
+    if (e.target.closest('#cerrarModalConfiabilidad') || e.target.closest('#cancelarAnalisis')) {
+      e.preventDefault();
+      window.cerrarModalConfiabilidad();
     }
-
-    //======================================================
-    // ALERTAS
-    //======================================================
-
-    actualizarAlertas(indicadores){
-
-        if(!this.dom.alertas){
-
-            return;
-
-        }
-
-        let html="";
-
-        if(indicadores.cobertura<70){
-
-            html+=`
-
-                <div class="conf-alert warning">
-
-                    Cobertura inferior al 70%.
-
-                </div>
-
-            `;
-
-        }
-
-        if(indicadores.cumplimiento<90){
-
-            html+=`
-
-                <div class="conf-alert warning">
-
-                    Cumplimiento inferior al 90%.
-
-                </div>
-
-            `;
-
-        }
-
-        if(indicadores.fisica<95){
-
-            html+=`
-
-                <div class="conf-alert danger">
-
-                    Existen diferencias físicas importantes.
-
-                </div>
-
-            `;
-
-        }
-
-        if(html===""){
-
-            html=`
-
-                <div class="conf-alert success">
-
-                    No existen alertas.
-
-                </div>
-
-            `;
-
-        }
-
-        this.dom.alertas.innerHTML=html;
-
+    if (e.target.closest('#guardarAnalisis')) {
+      e.preventDefault();
+      guardarAnalisis();
     }
-
-    //======================================================
-    // BUSCADOR
-    //======================================================
-
-
-
-buscar(){
-
-    const texto =
-
-        this.dom.buscar.value.toLowerCase();
-
-    this.dom.tabla
-
-        .querySelectorAll("tr")
-
-        .forEach(fila=>{
-
-            fila.style.display =
-
-                fila.textContent
-
-                    .toLowerCase()
-
-                    .includes(texto)
-
-                ? ""
-
-                : "none";
-
-        });
-
-}
-//======================================================
-// EDITAR ANÁLISIS
-//======================================================
-
-verAnalisis(indice){
-
-    const analisis = this.state.analisis[indice];
-
-    if(!analisis){
-        return;
+    if (e.target.closest('#btnExportarExcel')) {
+      e.preventDefault();
+      exportarExcel();
     }
-
-    this.form.anio.value = analisis.anio;
-    this.form.mes.value = analisis.mes;
-    this.form.nombre.value = analisis.nombre;
-    this.form.total.value = analisis.total_empresa;
-    this.form.programados.value = analisis.programados;
-    this.form.auditados.value = analisis.auditados;
-    this.form.correctos.value = analisis.correctos;
-    this.form.sobrantes.value = analisis.sobrantes;
-    this.form.faltantes.value = analisis.faltantes;
-    this.form.valorInventario.value = analisis.valor_inventario;
-    this.form.valorAuditado.value = analisis.valor_auditado;
-    this.form.valorDiferencias.value = analisis.valor_diferencias;
-    this.form.valorAjustes.value = analisis.valor_ajustes;
-
-    this.actualizarPreview();
-
-    this.dom.btnGuardar.style.display = "none";
-
-    this.abrirModal();
-
-}
-
-  //======================================================
-// EDITAR ANÁLISIS
-//======================================================
-
-editarAnalisis(indice){
-
-    this.verAnalisis(indice);
-
-    this.dom.btnGuardar.innerHTML = `
-
-        ${ICONOS.guardar}
-
-        Actualizar Análisis
-
-    `;
-
-}
-    //======================================================
-    // ELIMINAR ANÁLISIS
-    //======================================================
-
-   async eliminarAnalisis(indice){
-
-    if(!await Notif.confirm("Esta acción no se puede deshacer.", "¿Desea eliminar este análisis?")){
-        return;
+    if (e.target.closest('#btnExportarPDF')) {
+      e.preventDefault();
+      exportarPDF();
     }
+  });
 
-    const analisis = this.state.analisis[indice];
-
-    const { error } = await window.supabaseClient
-        .from("confiabilidad_inventario")
-        .delete()
-        .eq("id", analisis.id);
-
-    if(error){
-        console.error(error);
-        notifAlert(error.message);
-        return;
-    }
-
-    await this.cargarAnalisis();
-
-    this.actualizarResumen();
-
-    this.actualizarDashboardInicial();
-
-    notifAlert("Análisis eliminado correctamente.");
-
-}
-
-}
-
-//======================================================
-// INICIALIZAR MÓDULO
-//======================================================
-
-window.confiabilidad = new ConfiabilidadInventario();
-
-//==========================================================
-// FIN IIFE
-//==========================================================
+  // Inicialización
+  window.renderConfiabilidad();
 })();

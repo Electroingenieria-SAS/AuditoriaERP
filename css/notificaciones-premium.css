@@ -1,5 +1,5 @@
 /* =====================================================
-SISTEMA DE NOTIFICACIONES PREMIUM - GLOBAL
+SISTEMA DE NOTIFICACIONES PREMIUM - GLOBAL & DROPDOWN
 Usado por todos los módulos: inventario, auditorías,
 confiabilidad, recepción, usuarios, bi, login, dashboard.
 ===================================================== */
@@ -22,7 +22,7 @@ confiabilidad, recepción, usuarios, bi, login, dashboard.
   display:flex;
   align-items:flex-start;
   gap:14px;
-  background:rgba(255,255,255,.92);
+  background:rgba(255,255,255,.95);
   backdrop-filter:blur(14px);
   -webkit-backdrop-filter:blur(14px);
   border-radius:16px;
@@ -118,22 +118,232 @@ confiabilidad, recepción, usuarios, bi, login, dashboard.
   to{ width:0%; }
 }
 
-/* Tipos */
-
+/* Tipos de Alerta */
 .notif-success{ --notif-color:#10b981; --notif-bg:#ecfdf5; }
 .notif-error{ --notif-color:#ef4444; --notif-bg:#fef2f2; }
 .notif-warning{ --notif-color:#f59e0b; --notif-bg:#fffbeb; }
 .notif-info{ --notif-color:#2563eb; --notif-bg:#eff6ff; }
 
 /* =====================================================
-MODAL PREMIUM (confirm / prompt)
+   DROPDOWN DE LA CAMPANA DE NOTIFICACIONES
 ===================================================== */
+.hero-notification {
+  position: relative;
+}
 
+.notification-btn {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.notification-btn:hover {
+  background: #f1f5f9;
+  transform: translateY(-1px);
+}
+
+.notification-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: white;
+  font-size: 10.5px;
+  font-weight: 700;
+  height: 19px;
+  min-width: 19px;
+  padding: 0 5px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+}
+
+.notifications-dropdown {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  width: 360px;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.16);
+  z-index: 1000;
+  display: none;
+  overflow: hidden;
+}
+
+.notifications-dropdown.active {
+  display: block;
+  animation: notifDropdownIn 0.25s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+
+@keyframes notifDropdownIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.notif-panel-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.notif-tool-btn {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.notif-tool-btn:hover {
+  text-decoration: underline;
+}
+
+.notif-tool-btn.danger {
+  color: #ef4444;
+}
+
+.notif-items-scroll {
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.notif-item-row {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: background 0.15s;
+}
+
+.notif-item-row.no-leida {
+  background: #f0fdf4;
+}
+
+.notif-item-row.leida {
+  background: #ffffff;
+}
+
+.notif-item-row:hover {
+  background: #f8fafc;
+}
+
+.notif-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.notif-item-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.notif-unread-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #16a34a;
+  display: inline-block;
+}
+
+.notif-item-title {
+  font-size: 12.5px;
+  color: #0f172a;
+}
+
+.notif-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notif-item-date {
+  font-size: 10.5px;
+  color: #94a3b8;
+}
+
+.notif-item-del-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 3px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+
+.notif-item-del-btn:hover {
+  color: #ef4444;
+}
+
+.notif-mod-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  margin-left: 4px;
+}
+
+.notif-item-msg {
+  margin: 0;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.notif-empty-state {
+  text-align: center;
+  padding: 32px 20px;
+  color: #94a3b8;
+}
+
+.notif-empty-state span {
+  font-size: 32px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.notif-empty-state p {
+  margin: 0;
+  font-size: 12.5px;
+}
+
+/* =====================================================
+   MODAL ASÍNCRONO PREMIUM (confirm / prompt)
+===================================================== */
 #notifModalOverlay{
   position:fixed;
   inset:0;
-  background:rgba(15,23,42,.55);
-  backdrop-filter:blur(3px);
+  background:rgba(15,23,42,.6);
+  backdrop-filter:blur(4px);
   display:none;
   align-items:center;
   justify-content:center;
@@ -192,21 +402,22 @@ MODAL PREMIUM (confirm / prompt)
   white-space:pre-wrap;
 }
 
-.notif-modal-box input,
-.notif-modal-box select{
+.notif-modal-input,
+.notif-modal-select{
   width:100%;
-  height:50px;
+  height:48px;
   margin-top:18px;
   border:1px solid #cbd5e1;
   border-radius:12px;
   padding:0 15px;
-  font-size:14.5px;
+  font-size:14px;
   text-align:center;
+  font-family: inherit;
   transition:.2s;
 }
 
-.notif-modal-box input:focus,
-.notif-modal-box select:focus{
+.notif-modal-input:focus,
+.notif-modal-select:focus{
   outline:none;
   border-color:#2563eb;
   box-shadow:0 0 0 4px rgba(37,99,235,.15);
@@ -227,6 +438,7 @@ MODAL PREMIUM (confirm / prompt)
   font-size:14px;
   cursor:pointer;
   transition:.2s;
+  font-family: inherit;
 }
 
 .notif-btn-cancelar{
@@ -239,7 +451,7 @@ MODAL PREMIUM (confirm / prompt)
 }
 
 .notif-btn-aceptar{
-  background:var(--notif-color,#2563eb);
+  background:var(--notif-theme-color,#2563eb);
   color:white;
 }
 
@@ -249,16 +461,17 @@ MODAL PREMIUM (confirm / prompt)
 }
 
 @media(max-width:480px){
-
   #notifStack{
     right:10px;
     left:10px;
     max-width:none;
     width:auto;
   }
-
+  .notifications-dropdown {
+    width: calc(100vw - 32px);
+    right: -50px;
+  }
   .notif-modal-box{
     padding:26px 22px 22px;
   }
-
 }

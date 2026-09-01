@@ -10,7 +10,7 @@
   max-width: 1350px;
   margin: 0 auto;
   font-family: 'Poppins', sans-serif;
-  color: #f1f5f9;
+  color: #0f172a;
 }
 
 /* 1. HERO BANNER */
@@ -509,13 +509,13 @@
 }
 
 /* AVATAR + IDENTIDAD */
-.iam-user-cell {
+.user-identity-cell {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.iam-avatar {
+.user-avatar-small {
   width: 36px;
   height: 36px;
   border-radius: 10px;
@@ -530,14 +530,14 @@
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
 }
 
-.iam-user-name {
-  font-weight: 600;
-  color: #0f172a;
+.user-cell-meta {
+  font-size: 11px;
+  color: #94a3b8;
   display: block;
 }
 
 /* BADGES DE ROL */
-.iam-badge-role {
+.user-role-badge {
   display: inline-block;
   padding: 4px 10px;
   border-radius: 6px;
@@ -545,83 +545,10 @@
   font-weight: 700;
   font-family: 'JetBrains Mono', monospace;
   text-transform: uppercase;
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #e2e8f0;
 }
 
-.iam-badge-role.admin { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
-.iam-badge-role.jefe { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-.iam-badge-role.lider { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
-.iam-badge-role.auditor { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
-.iam-badge-role.compras { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
-
-/* BADGES DE ESTADO */
-.iam-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 50px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.iam-status-pill.activo {
-  background: #dcfce7;
-  color: #15803d;
-}
-
-.iam-status-pill.inactivo {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-
-.iam-status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-/* BOTONES DE ACCIÓN */
-.iam-actions-wrap {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.iam-btn-action {
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.iam-btn-action.edit {
-  color: #0f172a;
-}
-.iam-btn-action.edit:hover {
-  background: #fef9c3;
-  border-color: #facc15;
-  color: #854d0e;
-}
-
-.iam-btn-action.delete {
-  color: #ef4444;
-}
-.iam-btn-action.delete:hover {
-  background: #fee2e2;
-  border-color: #fca5a5;
-  color: #991b1b;
-}
+.user-role-badge.role-admin { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+.user-role-badge.role-user { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
 
 @keyframes iamPulse {
   0%, 100% { opacity: 1; transform: scale(1); }

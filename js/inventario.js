@@ -1,2266 +1,646 @@
-// ========================================
-// LIMPIAR VARIABLES ANTERIORES
-// ========================================
+/**
+ * ====================================================================
+ * INVENTARIO.JS — Módulo de Inventario Físico, Conteos & Novedades
+ * ====================================================================
+ * Versión: 2.7.0
+ */
 
-delete window.renderInventario;
-delete window.renderHistorial;
-delete window.actualizarKPIs;
-delete window.eliminarProducto;
-delete window.eliminarRegistro;
-delete window.filtrarHistorial;
+(function () {
+  'use strict';
 
-// ========================================
-// VARIABLES GLOBALES
-// ========================================
+  // Estado del Módulo
+  window.inventarioCache = [];
+  window.historialConteos = [];
+  window.productoActual = null;
+  window.novedadEliminarId = null;
 
-window.inventario =
+  function $(id) {
+    return document.getElementById(id);
+  }
 
-JSON.parse(
+  function getVal(id) {
+    const el = $(id);
+    return el ? el.value : '';
+  }
 
-  localStorage.getItem(
-    'inventario'
-  )
+  function setVal(id, val) {
+    const el = $(id);
+    if (el) el.value = val ?? '';
+  }
 
-) || [];
+  function sanitize(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
 
-window.productoActual = null;
+  function extraerStock(item) {
+    if (!item) return 0;
+    const val = item.stock ?? item.cantidad ?? item.stock_sistema ?? item.saldo ?? item.cantidad_teorica ?? item.Stock ?? item.STOCK ?? item.Cantidad ?? item.CANTIDAD ?? 0;
+    const num = Number(val);
+    return isNaN(num) ? 0 : num;
+  }
 
-// ========================================
-// ELEMENTOS HTML
-// ========================================
+  function notificar(mensaje, tipo = 'warning', titulo = 'Inventario') {
+    if (typeof window.mostrarNotificacion === 'function') {
+      window.mostrarNotificacion(titulo, mensaje, tipo);
+    } else if (typeof window.notifAlert === 'function') {
+      window.notifAlert(mensaje);
+    }
+  }
 
-var excelFile =
-document.getElementById(
-  'excelFile'
-);
-
-var reiniciarInventarioBtn =
-document.getElementById(
-  'reiniciarInventario'
-);
-
-var buscarBtn =
-document.getElementById(
-  'buscarBtn'
-);
-
-var guardarConteoBtn =
-document.getElementById(
-  'guardarConteo'
-);
-
-var exportarExcelBtn =
-document.getElementById(
-  'exportarExcel'
-);
-
-var buscadorInventario =
-document.getElementById(
-  'buscadorInventario'
-);
-
-// ========================================
-// EVENTOS
-// ========================================
-
-if(excelFile){
-
-  excelFile.onchange =
-  leerExcel;
-
-}
-
-if(reiniciarInventarioBtn){
-
-  reiniciarInventarioBtn.onclick =
-  reiniciarInventario;
-
-}
-
-if(buscarBtn){
-
-  buscarBtn.onclick =
-  buscarProducto;
-
-}
-
-if(guardarConteoBtn){
-
-  guardarConteoBtn.onclick =
-  registrarConteo;
-
-}
-
-if(exportarExcelBtn){
-
-  exportarExcelBtn.onclick =
-  exportarExcel;
-
-}
-
-if(buscadorInventario){
-
-  buscadorInventario.oninput =
-  filtrarInventario;
-
-}
-
-// ========================================
-// LEER EXCEL
-// ========================================
-
-function leerExcel(e){
-
-  try{
-
-    if(
-
-      !window.tienePermiso(
-        'inventario',
-        'crear'
-      )
-
-    ){
-
-      notifAlert(
-        'No tiene permisos'
-      );
-
+  // ==================================================================
+  // 1. CARGA Y SINCRONIZACIÓN DE INVENTARIO (SUPABASE)
+  // ==================================================================
+  window.cargarInventarioBD = async function () {
+    if (!window.supabaseClient) {
+      window.inventarioCache = JSON.parse(localStorage.getItem('inventario')) || [];
+      window.renderInventario();
+      window.actualizarKPIs();
       return;
-
     }
 
-    const file =
+    try {
+      const TAMANO_PAGINA = 1000;
+      let desde = 0;
+      let todos = [];
 
-    e.target.files[0];
+      while (true) {
+        const { data, error } = await window.supabaseClient
+          .from('inventario')
+          .select('*')
+          .order('codigo')
+          .range(desde, desde + TAMANO_PAGINA - 1);
 
-    if(!file){
-
-      return;
-
-    }
-
-    const reader =
-
-    new FileReader();
-
-    reader.onload = async function(event){
-
-      try{
-
-        const data =
-
-        new Uint8Array(
-          event.target.result
-        );
-
-        const workbook =
-
-        XLSX.read(
-
-          data,
-
-          {
-            type:'array'
-          }
-
-        );
-
-        const hoja =
-
-        workbook.Sheets[
-          workbook.SheetNames[0]
-        ];
-
-        // ========================================
-        // CONVERTIR EXCEL
-        // ========================================
-
-      const inventarioExcel =
-
-XLSX.utils.sheet_to_json(
-    hoja
-);
-
-console.log(inventarioExcel[0]);
-
-        if(
-
-          !inventarioExcel ||
-
-          inventarioExcel.length === 0
-
-        ){
-
-          notifAlert(
-            'El archivo está vacío'
-          );
-
-          return;
-
+        if (error) {
+          console.error('Error cargando inventario:', error.message);
+          break;
         }
 
-       // ========================================
-// MAPEO ROBUSTO DE COLUMNAS (ignora mayúsculas,
-// acentos, espacios, orden y columnas extra)
-// ========================================
+        if (!data || data.length === 0) break;
+        todos = todos.concat(data);
+        if (data.length < TAMANO_PAGINA) break;
+        desde += TAMANO_PAGINA;
+      }
 
-function normalizarEncabezado(texto){
+      window.inventarioCache = todos;
+      localStorage.setItem('inventario', JSON.stringify(todos));
+      window.renderInventario();
+      window.actualizarKPIs();
+      await window.cargarNovedadesBD();
+    } catch (err) {
+      console.error('Excepción en cargarInventarioBD:', err);
+    }
+  };
 
-  return String(texto || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // quitar acentos
-    .replace(/[^a-z0-9]/g, "");      // quitar espacios/guiones/símbolos
+  // ==================================================================
+  // 2. LECTURA Y CARGA DE EXCEL
+  // ==================================================================
+  async function leerExcel(e) {
+    try {
+      if (typeof window.tienePermiso === 'function' && !window.tienePermiso('inventario', 'crear')) {
+        notificar('Acceso denegado: No cuenta con permisos para cargar inventarios.');
+        return;
+      }
 
-}
+      const file = e.target.files[0];
+      if (!file) return;
 
-// Alias aceptados para cada una de las 4 columnas que
-// SIEMPRE necesitamos, sin importar cómo venga el Excel.
-const ALIAS_COLUMNAS = {
+      const reader = new FileReader();
+      reader.onload = async function (event) {
+        try {
+          const data = new Uint8Array(event.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
 
-  codigo: ["codigo", "cod", "sku", "codigoproducto", "codprod", "id", "referencia"],
+          if (!json || json.length === 0) {
+            notificar('El archivo Excel está vacío o no tiene el formato esperado.');
+            return;
+          }
 
-  producto: ["producto", "nombre", "descripcion", "material", "item", "nombreproducto", "descripcionproducto"],
+          const normalizados = json.map(item => {
+            const codigo = String(item.Codigo || item.CODIGO || item.codigo || item.Referencia || item.REFERENCIA || item.Item || item.ITEM || '').trim();
+            const producto = String(item.Producto || item.PRODUCTO || item.producto || item.Descripcion || item.DESCRIPCION || item.Material || item.MATERIAL || '').trim();
+            const ubicacion = String(item.Ubicacion || item.UBICACION || item.ubicacion || item.Bodega || item.BODEGA || 'Principal').trim();
+            const stock = extraerStock(item);
 
-  ubicacion: ["ubicacion", "localizacion", "bodega", "zona", "posicion"],
+            return {
+              codigo,
+              producto: producto || codigo,
+              ubicacion,
+              stock_sistema: stock,
+              conteo_fisico: null,
+              diferencia: null,
+              estado: 'Pendiente',
+              usuario: window.usuarioLogueado?.usuario || 'Sistema'
+            };
+          }).filter(i => i.codigo);
 
-  stock: ["stock", "cantidad", "existencia", "stocksistema", "cantidadsistema", "saldo"]
+          if (normalizados.length === 0) {
+            notificar('No se detectaron columnas válidas (Código, Producto, Stock).');
+            return;
+          }
 
-};
+          if (window.supabaseClient) {
+            const LOTE = 200;
+            for (let i = 0; i < normalizados.length; i += LOTE) {
+              const chunk = normalizados.slice(i, i + LOTE);
+              await window.supabaseClient.from('inventario').upsert(chunk, { onConflict: 'codigo' });
+            }
+          }
 
-// Encabezados reales del archivo cargado (las llaves que
-// entrega sheet_to_json vienen de la primera fila del Excel)
-const encabezadosReales = Object.keys(inventarioExcel[0] || {});
+          window.inventarioCache = normalizados;
+          localStorage.setItem('inventario', JSON.stringify(normalizados));
 
-// Por cada columna que necesitamos, buscamos cuál encabezado
-// real del Excel coincide (normalizado) con alguno de sus alias
-function encontrarEncabezado(alias){
+          if (typeof window.guardarHistorial === 'function') {
+            await window.guardarHistorial('CARGA_EXCEL', 'INVENTARIO', `Carga de archivo Excel con ${normalizados.length} productos`);
+          }
 
-  return encabezadosReales.find(function(real){
+          if (typeof window.crearNotificacion === 'function') {
+            window.crearNotificacion(`📦 Inventario cargado exitosamente: ${normalizados.length} productos listos para conteo.`, 'success');
+          }
 
-    const realNormalizado = normalizarEncabezado(real);
+          window.renderInventario();
+          window.actualizarKPIs();
+          notificar(`Se cargaron ${normalizados.length} productos con éxito.`, 'success');
 
-    return alias.some(function(posible){
-      return realNormalizado === posible;
+        } catch (err) {
+          console.error('Error procesando Excel:', err);
+          notificar('Error al procesar la estructura del Excel.', 'error');
+        }
+      };
+
+      reader.readAsArrayBuffer(file);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // ==================================================================
+  // 3. BUSCADOR Y REGISTRO DE CONTEO FÍSICO
+  // ==================================================================
+  function buscarProducto() {
+    const cod = getVal('codigoInput').trim().toUpperCase();
+    if (!cod) {
+      notificar('Ingrese un código de producto para consultar.');
+      return;
+    }
+
+    const prod = window.inventarioCache.find(p => String(p.codigo).toUpperCase() === cod);
+
+    if (!prod) {
+      window.productoActual = null;
+      setVal('codigoProducto', '-');
+      setVal('nombreProducto', '-');
+      setVal('ubicacionProducto', '-');
+      setVal('stockProducto', '-');
+      $('resultadoTexto').innerText = '-';
+      notificar(`El código "${cod}" no existe en el inventario cargado.`);
+      return;
+    }
+
+    const stockTeorico = extraerStock(prod);
+    window.productoActual = { ...prod, stock_sistema: stockTeorico };
+
+    $('codigoProducto').innerText = prod.codigo;
+    $('nombreProducto').innerText = prod.producto || '-';
+    $('ubicacionProducto').innerText = prod.ubicacion || 'General';
+    $('stockProducto').innerText = stockTeorico;
+
+    const fisico = getVal('conteoFisico').trim();
+    if (fisico !== '') {
+      const diff = Number(fisico) - stockTeorico;
+      $('resultadoTexto').innerText = diff > 0 ? `+${diff} (Sobrante)` : diff < 0 ? `${diff} (Faltante)` : '0 (Exacto)';
+      $('resultadoTexto').style.color = diff === 0 ? '#10b981' : diff < 0 ? '#ef4444' : '#f59e0b';
+    } else {
+      $('resultadoTexto').innerText = 'Esperando conteo...';
+      $('resultadoTexto').style.color = '#64748b';
+    }
+
+    $('conteoFisico').focus();
+  }
+
+  async function registrarConteo() {
+    if (!window.productoActual) {
+      buscarProducto();
+      if (!window.productoActual) return;
+    }
+
+    const valorFisico = getVal('conteoFisico').trim();
+    if (valorFisico === '') {
+      notificar('Ingrese el valor del conteo físico.');
+      return;
+    }
+
+    const conteoFisico = Number(valorFisico);
+    const stockSistema = extraerStock(window.productoActual);
+    const diferencia = conteoFisico - stockSistema;
+    const estado = diferencia === 0 ? 'Exacto' : diferencia < 0 ? 'Faltante' : 'Sobrante';
+
+    const itemActualizado = {
+      ...window.productoActual,
+      stock_sistema: stockSistema,
+      conteo_fisico: conteoFisico,
+      diferencia: diferencia,
+      estado: estado,
+      usuario: window.usuarioLogueado?.usuario || 'Sistema'
+    };
+
+    // Actualizar cache local
+    const idx = window.inventarioCache.findIndex(p => p.codigo === window.productoActual.codigo);
+    if (idx > -1) {
+      window.inventarioCache[idx] = itemActualizado;
+    }
+    localStorage.setItem('inventario', JSON.stringify(window.inventarioCache));
+
+    // Agregar a historial de conteos
+    window.historialConteos.unshift({
+      codigo: itemActualizado.codigo,
+      producto: itemActualizado.producto,
+      sistema: stockSistema,
+      fisico: conteoFisico,
+      diferencia: diferencia,
+      estado: estado,
+      fecha: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
     });
 
-  });
-
-}
-
-const columnaCodigo = encontrarEncabezado(ALIAS_COLUMNAS.codigo);
-const columnaProducto = encontrarEncabezado(ALIAS_COLUMNAS.producto);
-const columnaUbicacion = encontrarEncabezado(ALIAS_COLUMNAS.ubicacion);
-const columnaStock = encontrarEncabezado(ALIAS_COLUMNAS.stock);
-
-if(!columnaCodigo){
-
-  notifAlert(
-    "No se encontró una columna de Código en el Excel. Verifique que exista una columna como 'Código', 'SKU' o 'Referencia'."
-  );
-
-  return;
-
-}
-
-       // ========================================
-// GUARDAR EN SUPABASE
-// ========================================
-
-const { error: eliminarError } =
-
-await window.supabaseClient
-
-.from("inventario")
-
-.delete()
-
-.neq("id", 0);
-
-if(eliminarError){
-
-    console.error(eliminarError);
-
-    notifAlert("Error limpiando el inventario.");
-
-    return;
-
-}
-
-// Sin importar cuántas columnas traiga el Excel (aunque sean
-// mil), solo se toman estas 4: código, producto, ubicación y
-// stock, localizadas dinámicamente por nombre de encabezado.
-const registros = inventarioExcel.map(function(item){
-
-    return{
-
-        codigo: String(columnaCodigo ? (item[columnaCodigo] || "") : "").trim(),
-
-        producto: String(columnaProducto ? (item[columnaProducto] || "") : "").trim(),
-
-        ubicacion: String(columnaUbicacion ? (item[columnaUbicacion] || "") : "").trim(),
-
-        stock: Number(columnaStock ? (item[columnaStock] || 0) : 0)
-
-    };
-
-}).filter(function(item){
-
-  // Se descartan filas totalmente vacías (sin código)
-  return item.codigo !== "";
-
-});
-
-if(registros.length === 0){
-
-  notifAlert(
-    "No se encontraron filas válidas con código en el Excel."
-  );
-
-  return;
-
-}
-
-// ========================================
-// INSERTAR EN LOTES (Supabase puede fallar o
-// truncar si se envían miles de filas de una sola vez)
-// ========================================
-
-const TAMANO_LOTE = 500;
-let totalInsertados = 0;
-
-for(let i = 0; i < registros.length; i += TAMANO_LOTE){
-
-  const lote = registros.slice(i, i + TAMANO_LOTE);
-
-  const { error: insertarError } =
-
-  await window.supabaseClient
-
-  .from("inventario")
-
-  .insert(lote);
-
-  if(insertarError){
-
-    console.error(insertarError);
-
-    notifAlert(
-      "Error guardando el inventario en el lote " +
-      (Math.floor(i / TAMANO_LOTE) + 1) +
-      ". Se cargaron " + totalInsertados + " de " + registros.length + " referencias."
-    );
-
-    return;
-
-  }
-
-  totalInsertados += lote.length;
-
-}
-
-window.inventario = registros;
-
-window.renderInventario();
-
-notifAlert("Inventario cargado correctamente: " + totalInsertados + " referencias.");
-
-              }
-
-      catch(error){
-
-        console.error(
-          "Error leyendo Excel:",
-          error
-        );
-
-      }
-
-    };
-
-    reader.readAsArrayBuffer(file);
-
-  }
-
-  catch(error){
-
-    console.error(
-      "Error leerExcel:",
-      error
-    );
-
-  }
-
-}
-
-// ========================================
-// CARGAR INVENTARIO
-// ========================================
-
-window.cargarInventario = async function(){
-
-  try{
-
-    // Supabase limita cada respuesta a 1000 filas por defecto.
-    // Con miles de referencias hay que paginar con .range()
-    // hasta traer TODO el inventario.
-
-    const TAMANO_PAGINA = 1000;
-    let desde = 0;
-    let todosLosRegistros = [];
-
-    while(true){
-
-      const { data, error } =
-
-      await window.supabaseClient
-
-      .from("inventario")
-
-      .select("*")
-
-      .order("codigo")
-
-      .range(desde, desde + TAMANO_PAGINA - 1);
-
-      if(error){
-
-        console.error(error);
-        break;
-
-      }
-
-      if(!data || data.length === 0){
-        break;
-      }
-
-      todosLosRegistros = todosLosRegistros.concat(data);
-
-      if(data.length < TAMANO_PAGINA){
-        break;
-      }
-
-      desde += TAMANO_PAGINA;
-
-    }
-
-    window.inventario = todosLosRegistros;
-
-    window.renderInventario();
-
-  }
-
-  catch(error){
-
-    console.error(error);
-
-  }
-
-};
-// ========================================
-// RENDER INVENTARIO
-// ========================================
-
-window.renderInventario = function(datos){
-
-  const inventarioData =
-
-  datos ||
-
-  window.inventario ||
-
-  [];
-
-  const body =
-
-  document.getElementById(
-    'inventarioBody'
-  );
-
-  if(!body){
-
-    return;
-
-  }
-
-  body.innerHTML = '';
-
-  // ========================================
-  // SIN DATOS
-  // ========================================
-
-  if(inventarioData.length === 0){
-
-    body.innerHTML =
-
-    '<tr>' +
-
-    '<td colspan="5">' +
-
-    'No hay inventario cargado' +
-
-    '</td>' +
-
-    '</tr>';
-
-    return;
-
-  }
-
-  let html = '';
-
-  inventarioData.forEach(function(item){
-
-    html +=
-
-    '<tr>' +
-
-      '<td>' +
-      (item.codigo || '-') +
-      '</td>' +
-
-      '<td>' +
-      (item.producto || '-') +
-      '</td>' +
-
-      '<td>' +
-      (item.ubicacion || '-') +
-      '</td>' +
-
-      '<td>' +
-      (item.stock || 0) +
-      '</td>' +
-
-      
-
-      '<td>' +
-
-      (
-
-        window.tienePermiso(
-          'inventario',
-          'eliminar'
-        )
-
-        ?
-
-        '<button ' +
-
-        'class="btn-eliminar" ' +
-
-        'onclick="eliminarProducto(\'' +
-
-        item.codigo +
-
-        '\')">' +
-
-        'Eliminar' +
-
-        '</button>'
-
-        :
-
-        '-'
-
-      )
-
-      +
-
-      '</td>' +
-
-    '</tr>';
-
-  });
-
-  body.innerHTML = html;
-
-};
-
-  // ========================================
-// ELIMINAR PRODUCTO
-// ========================================
-
-window.eliminarProducto = async function(codigo){
-
-  try{
-
-    if(
-
-      !window.tienePermiso(
-        'inventario',
-        'eliminar'
-      )
-
-    ){
-
-      notifAlert(
-        'No tiene permisos'
-      );
-
-      return;
-
-    }
-
-    const confirmar = await Notif.confirm(
-      'Esta acción no se puede deshacer.',
-      '¿Eliminar producto?'
-    );
-
-    if(!confirmar){
-
-      return;
-
-    }
-
-    window.inventario =
-
-    window.inventario.filter(
-
-      function(item){
-
-        return String(item.codigo) !== String(codigo);
-
-      }
-
-    );
-
-    localStorage.setItem(
-
-      'inventario',
-
-      JSON.stringify(
-        window.inventario
-      )
-
-    );
-
-    window.renderInventario();
-
-    if(
-      typeof window.actualizarKPIs === 'function'
-    ){
-      window.actualizarKPIs();
-
-      if(typeof window.refrescarDashboardSiActivo === "function"){
-        window.refrescarDashboardSiActivo();
+    // Persistir en Supabase
+    if (window.supabaseClient) {
+      try {
+        await window.supabaseClient
+          .from('inventario')
+          .update({
+            conteo_fisico: conteoFisico,
+            diferencia: diferencia,
+            estado: estado,
+            usuario: window.usuarioLogueado?.usuario || 'Sistema'
+          })
+          .eq('codigo', itemActualizado.codigo);
+      } catch (err) {
+        console.warn('Error persistiendo conteo en BD:', err);
       }
     }
 
-    notifAlert(
-      'Producto eliminado'
-    );
-
-  }
-
-  catch(error){
-
-    console.log(
-      'Error eliminarProducto:',
-      error
-    );
-
-  }
-
-};
-
-
-
-// ========================================
-// BUSCAR PRODUCTO
-// ========================================
-
-function buscarProducto(){
-
-  try{
-
-    if(
-
-      !window.tienePermiso(
-        'inventario',
-        'ver'
-      )
-
-    ){
-
-      notifAlert(
-        'No tiene permisos'
-      );
-
-      return;
-
-    }
-
-    const codigoInput =
-
-    document.getElementById(
-      'codigoInput'
-    );
-
-    if(!codigoInput){
-
-      return;
-
-    }
-
-    const codigo =
-
-    codigoInput.value
-    .trim();
-
-    if(!codigo){
-
-      notifAlert(
-        'Digite un código'
-      );
-
-      return;
-
-    }
-
- // ========================================
-// BUSCAR TODOS LOS REGISTROS DEL CÓDIGO
-// ========================================
-
-const registros =
-
-(window.inventario || [])
-
-.filter(function(item){
-
-    return String(item.codigo).trim() === String(codigo).trim();
-
-});
-
-if(registros.length === 0){
-
-    notifAlert(
-      'Producto no encontrado'
-    );
-
-    return;
-
-}
-
-// ========================================
-// SUMAR STOCK TOTAL
-// ========================================
-
-const stockTotal =
-
-registros.reduce(function(total,item){
-
-    return total + Number(item.stock || 0);
-
-},0);
-
-// ========================================
-// GUARDAR PRODUCTO ACTUAL
-// ========================================
-
-window.productoActual = {
-
-    codigo: registros[0].codigo,
-
-    producto: registros[0].producto,
-
-    ubicacion: registros[0].ubicacion,
-
-    stock: stockTotal,
-
-    registros: registros.length
-
-};
-
-// ========================================
-// MOSTRAR INFORMACIÓN
-// ========================================
-
-actualizarTexto(
-  'codigoProducto',
-  window.productoActual.codigo || '-'
-);
-
-actualizarTexto(
-  'nombreProducto',
-  window.productoActual.producto || '-'
-);
-
-actualizarTexto(
-  'ubicacionProducto',
-  window.productoActual.ubicacion || '-'
-);
-
-actualizarTexto(
-  'stockProducto',
-  window.productoActual.stock + ' (' +
-  window.productoActual.registros +
-  ' registros)'
-);
-
-  }
-
-  catch(error){
-
-    console.log(
-      'Error buscarProducto:',
-      error
-    );
-
-  }
-
-}
-
-function registrarConteo(){
-
-  try{
-
-    // ========================================
-    // VALIDAR PERMISO
-    // ========================================
-
-    if(
-
-      !window.tienePermiso(
-        'inventario',
-        'editar'
-      )
-
-    ){
-
-      notifAlert(
-        'No tiene permisos'
-      );
-
-      return;
-
-    }
-
-    // ========================================
-    // VALIDAR PRODUCTO
-    // ========================================
-
-    if(!window.productoActual){
-
-      notifAlert(
-        'Busque un producto'
-      );
-
-      return;
-
-    }
-
-    // ========================================
-    // INPUT CONTEO
-    // ========================================
-
-    const conteoInput =
-
-    document.getElementById(
-      'conteoFisico'
-    );
-
-    if(!conteoInput){
-
-      notifAlert(
-        'No se encontró el campo conteo'
-      );
-
-      return;
-
-    }
-
-    // ========================================
-    // VALORES
-    // ========================================
-
-    const fisico = Number(
-      conteoInput.value
-    );
-
-    if(isNaN(fisico)){
-
-      notifAlert(
-        'Ingrese un valor válido'
-      );
-
-      return;
-
-    }
-
-    const sistema = Number(
-      window.productoActual.stock || 0
-    );
-
-    const diferencia =
-    fisico - sistema;
-
-    // ========================================
-    // RESULTADO
-    // ========================================
-
-    actualizarTexto(
-      'resultadoTexto',
-      diferencia
-    );
-
-    // ========================================
-    // HISTORIAL
-    // ========================================
-
-    let historial =
-
-    JSON.parse(
-
-      localStorage.getItem(
-        'historial'
-      )
-
-    ) || [];
-
-    const index =
-
-    historial.findIndex(
-
-      function(item){
-
-        return String(
-          item.codigo
-        ) === String(
-          window.productoActual.codigo
-        );
-
-      }
-
-    );
-
-    const nuevoRegistro = {
-
-      codigo:
-      window.productoActual.codigo,
-
-      producto:
-      window.productoActual.producto,
-
-      sistema:
-      sistema,
-
-      fisico:
-      fisico,
-
-      diferencia:
-      diferencia
-
-    };
-
-    // ========================================
-    // ACTUALIZAR O CREAR
-    // ========================================
-
-    if(index >= 0){
-
-      historial[index] =
-      nuevoRegistro;
-
-    }
-
-    else{
-
-      historial.push(
-        nuevoRegistro
-      );
-
-    }
-
-    // ========================================
-    // GUARDAR
-    // ========================================
-
-    localStorage.setItem(
-
-      'historial',
-
-      JSON.stringify(
-        historial
-      )
-
-    );
-
-    // ========================================
-    // ACTUALIZAR
-    // ========================================
-
-    if(
-
-      typeof window.renderHistorial ===
-      'function'
-
-    ){
-
-      window.renderHistorial();
-
-    }
-
-    if(
-
-      typeof window.actualizarKPIs ===
-      'function'
-
-    ){
-
-      window.actualizarKPIs();
-
-    if(typeof window.refrescarDashboardSiActivo === "function"){
-      window.refrescarDashboardSiActivo();
-    }
-
-      if(typeof window.refrescarDashboardSiActivo === "function"){
-        window.refrescarDashboardSiActivo();
-      }
-
-    }
-
-    notifAlert(
-      'Conteo guardado'
-    );
-
-  }
-
-  catch(error){
-
-    console.log(
-      'Error registrarConteo:',
-      error
-    );
-
-  }
-
-}
-
-// ========================================
-// RENDER HISTORIAL
-// ========================================
-
-window.renderHistorial = function(filtro){
-
-  try{
-
-    let historial =
-
-    JSON.parse(
-
-      localStorage.getItem(
-        'historial'
-      )
-
-    ) || [];
-
-    // ========================================
-    // FILTROS
-    // ========================================
-
-    if(filtro === 'exactos'){
-
-      historial = historial.filter(
-
-        item => item.diferencia === 0
-
-      );
-
-    }
-
-    if(filtro === 'faltantes'){
-
-      historial = historial.filter(
-
-        item => item.diferencia < 0
-
-      );
-
-    }
-
-    if(filtro === 'sobrantes'){
-
-      historial = historial.filter(
-
-        item => item.diferencia > 0
-
-      );
-
-    }
-
-    const body =
-
-    document.getElementById(
-      'historialBody'
-    );
-
-    if(!body){
-
-      return;
-
-    }
-
-    body.innerHTML = '';
-
-    // ========================================
-    // SIN DATOS
-    // ========================================
-
-    if(historial.length === 0){
-
-      body.innerHTML =
-
-      '<tr>' +
-
-      '<td colspan="6">' +
-
-      'No hay conteos registrados' +
-
-      '</td>' +
-
-      '</tr>';
-
-      return;
-
-    }
-
-    // ========================================
-    // HTML
-    // ========================================
-
-    let html = '';
-
-    historial.forEach(function(item){
-
-      html +=
-
-      '<tr>' +
-
-      '<td>' +
-      (item.codigo || '-') +
-      '</td>' +
-
-      '<td>' +
-      (item.producto || '-') +
-      '</td>' +
-
-      '<td>' +
-      (item.sistema || 0) +
-      '</td>' +
-
-      '<td>' +
-      (item.fisico || 0) +
-      '</td>' +
-
-      '<td>' +
-      (item.diferencia || 0) +
-      '</td>' +
-
-      '<td>' +
-
-      (
-
-        window.tienePermiso(
-          'inventario',
-          'eliminar'
-        )
-
-        ?
-
-        '<button class="btn-eliminar" onclick="window.eliminarRegistro(\'' +
-
-        item.codigo +
-
-        '\')">Eliminar</button>'
-
-        :
-
-        '-'
-
-      ) +
-
-      '</td>' +
-
-      '</tr>';
-
-    });
-
-    body.innerHTML = html;
-
-  }
-
-  catch(error){
-
-    console.log(
-      'Error renderHistorial:',
-      error
-    );
-
-  }
-
-};
-
-// ========================================
-// ELIMINAR REGISTRO
-// ========================================
-
-window.eliminarRegistro = function(codigo){
-
-  try{
-
-    if(
-
-      !window.tienePermiso(
-        'inventario',
-        'eliminar'
-      )
-
-    ){
-
-      notifAlert(
-        'No tiene permisos'
-      );
-
-      return;
-
-    }
-
-    let historial =
-
-    JSON.parse(
-
-      localStorage.getItem(
-        'historial'
-      )
-
-    ) || [];
-
-    historial = historial.filter(
-
-      item =>
-
-      String(item.codigo) !==
-      String(codigo)
-
-    );
-
-    localStorage.setItem(
-
-      'historial',
-
-      JSON.stringify(
-        historial
-      )
-
-    );
+    $('resultadoTexto').innerText = diferencia > 0 ? `+${diferencia} (Sobrante)` : diferencia < 0 ? `${diferencia} (Faltante)` : '0 (Exacto)';
+    $('resultadoTexto').style.color = diferencia === 0 ? '#10b981' : diferencia < 0 ? '#ef4444' : '#f59e0b';
+
+    setVal('codigoInput', '');
+    setVal('conteoFisico', '');
+    window.productoActual = null;
+    $('codigoInput').focus();
 
     window.renderHistorial();
-
+    window.renderInventario();
     window.actualizarKPIs();
+    notificar(`Conteo registrado para "${itemActualizado.codigo}": ${estado} (${diferencia})`, 'success');
+  }
 
-    if(typeof window.refrescarDashboardSiActivo === "function"){
-      window.refrescarDashboardSiActivo();
+  // ==================================================================
+  // 4. REPORTAR NOVEDAD DE INVENTARIO
+  // ==================================================================
+  window.abrirModalNovedad = function () {
+    if (window.productoActual) {
+      setVal('novedadCodigo', window.productoActual.codigo);
+      setVal('novedadMaterial', window.productoActual.producto);
+      setVal('novedadSistema', extraerStock(window.productoActual));
+      setVal('novedadFisico', getVal('conteoFisico') || 0);
+      window.calcularDiferenciaNovedad();
+    } else {
+      setVal('novedadCodigo', '');
+      setVal('novedadMaterial', '');
+      setVal('novedadSistema', '0');
+      setVal('novedadFisico', '0');
+      setVal('novedadDiferencia', '0');
+    }
+    setVal('novedadObservacion', '');
+    const m = $('modalNovedadInventario');
+    if (m) m.classList.add('active');
+  };
+
+  window.cerrarModalNovedad = function () {
+    const m = $('modalNovedadInventario');
+    if (m) m.classList.remove('active');
+  };
+
+  window.calcularDiferenciaNovedad = function () {
+    const s = Number(getVal('novedadSistema')) || 0;
+    const f = Number(getVal('novedadFisico')) || 0;
+    const d = f - s;
+    setVal('novedadDiferencia', d);
+  };
+
+  async function guardarNovedad() {
+    const codigo = getVal('novedadCodigo').trim();
+    const material = getVal('novedadMaterial').trim();
+    const sistema = Number(getVal('novedadSistema')) || 0;
+    const fisico = Number(getVal('novedadFisico')) || 0;
+    const diferencia = Number(getVal('novedadDiferencia')) || 0;
+    const tipo = getVal('novedadTipo');
+    const observacion = getVal('novedadObservacion').trim();
+
+    if (!codigo || !material) {
+      notificar('Complete el código y material para reportar la novedad.');
+      return;
     }
 
+    const payload = {
+      codigo,
+      material,
+      stock_sistema: sistema,
+      conteo_fisico: fisico,
+      diferencia,
+      tipo,
+      usuario: window.usuarioLogueado?.usuario || 'Sistema',
+      observacion,
+      estado: 'Pendiente',
+      created_at: new Date().toISOString()
+    };
+
+    if (window.supabaseClient) {
+      const { error } = await window.supabaseClient.from('novedades_inventario').insert([payload]);
+      if (error) {
+        notificar('Error guardando novedad: ' + error.message, 'error');
+        return;
+      }
+    }
+
+    if (typeof window.crearNotificacion === 'function') {
+      window.crearNotificacion(`⚠️ Novedad reportada: ${codigo} - ${tipo} (${observacion})`, 'warning');
+    }
+
+    window.cerrarModalNovedad();
+    await window.cargarNovedadesBD();
+    notificar('Novedad reportada exitosamente.', 'success');
   }
 
-  catch(error){
+  window.cargarNovedadesBD = async function () {
+    const body = $('novedadesBody');
+    if (!body) return;
 
-    console.log(
-      'Error eliminarRegistro:',
-      error
-    );
+    if (!window.supabaseClient) {
+      body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px;">Sin conexión</td></tr>`;
+      return;
+    }
 
-  }
+    try {
+      const { data, error } = await window.supabaseClient
+        .from('novedades_inventario')
+        .select('*')
+        .order('id', { ascending: false });
 
-};
+      if (error || !data || data.length === 0) {
+        body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px;">No hay novedades reportadas.</td></tr>`;
+        return;
+      }
 
-// ========================================
-// FILTRAR HISTORIAL
-// ========================================
+      body.innerHTML = data.map(item => `
+        <tr>
+          <td>${new Date(item.created_at).toLocaleDateString('es-CO')}</td>
+          <td><strong>${sanitize(item.codigo)}</strong></td>
+          <td>${sanitize(item.material)}</td>
+          <td><span class="badge-novedad">${sanitize(item.tipo)}</span></td>
+          <td>${item.stock_sistema}</td>
+          <td>${item.conteo_fisico}</td>
+          <td>${sanitize(item.usuario || 'Sistema')}</td>
+          <td>
+            <button type="button" class="btn-mini" onclick="window.verObsNovedad('${encodeURIComponent(item.observacion || '')}')">👁️</button>
+          </td>
+          <td>
+            <button type="button" class="btn-mini btn-eliminar-mini" onclick="window.eliminarNovedad(${item.id})">🗑️</button>
+          </td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-window.filtrarHistorial = function(tipo){
+  window.verObsNovedad = function (obsEnc) {
+    const obs = decodeURIComponent(obsEnc);
+    const modal = $('modalObservacion');
+    const texto = $('textoObservacion');
+    if (texto) texto.innerText = obs || 'Sin observaciones adicionales.';
+    if (modal) modal.style.display = 'flex';
+  };
 
-  if(
+  window.cerrarObservacion = function () {
+    const modal = $('modalObservacion');
+    if (modal) modal.style.display = 'none';
+  };
 
-    typeof window.renderHistorial ===
-    'function'
+  window.eliminarNovedad = async function (id) {
+    if (!confirm('¿Desea eliminar este registro de novedad?')) return;
+    if (window.supabaseClient) {
+      await window.supabaseClient.from('novedades_inventario').delete().eq('id', Number(id));
+    }
+    await window.cargarNovedadesBD();
+    notificar('Novedad eliminada.', 'success');
+  };
 
-  ){
+  // ==================================================================
+  // 5. RENDERIZADO DE TABLAS Y KPIS (TOLERANTE A SCHEMAS)
+  // ==================================================================
+  window.renderInventario = function (datos = null) {
+    const body = $('inventarioBody');
+    if (!body) return;
 
-    window.renderHistorial(tipo);
+    const lista = datos || window.inventarioCache || [];
 
-  }
+    if (lista.length === 0) {
+      body.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:25px;color:#94a3b8;">No hay productos cargados en inventario</td></tr>`;
+      return;
+    }
 
-};
+    const mostrar = lista.slice(0, 200);
 
-// ========================================
-// KPIS
-// ========================================
+    body.innerHTML = mostrar.map(item => {
+      const stockValor = extraerStock(item);
 
-window.actualizarKPIs = function(){
+      return `
+        <tr>
+          <td><strong>${sanitize(item.codigo)}</strong></td>
+          <td>${sanitize(item.producto || item.descripcion || item.material || item.codigo)}</td>
+          <td>${sanitize(item.ubicacion || item.bodega || 'Principal')}</td>
+          <td><strong>${stockValor}</strong></td>
+          <td style="text-align: right;">
+            <button type="button" class="btn-mini btn-inv-count-row" onclick="window.seleccionarParaConteo('${sanitize(item.codigo)}')" title="Contar este producto">✏️ Contar</button>
+          </td>
+        </tr>`;
+    }).join('');
+  };
 
-  try{
+  window.seleccionarParaConteo = function (codigo) {
+    setVal('codigoInput', codigo);
+    buscarProducto();
+    window.scrollTo({ top: 150, behavior: 'smooth' });
+  };
 
-    const historial =
+  window.renderHistorial = function () {
+    const body = $('historialBody');
+    if (!body) return;
 
-    JSON.parse(
+    if (window.historialConteos.length === 0) {
+      body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#94a3b8;">Sin conteos registrados en esta sesión</td></tr>`;
+      return;
+    }
 
-      localStorage.getItem(
-        'historial'
-      )
+    body.innerHTML = window.historialConteos.map(item => {
+      const diff = Number(item.diferencia) || 0;
+      const diffTxt = diff > 0 ? `+${diff}` : `${diff}`;
+      const color = diff === 0 ? '#10b981' : diff < 0 ? '#ef4444' : '#f59e0b';
+      const badgeClass = diff === 0 ? 'estado-revisado' : diff < 0 ? 'estado-cerrado' : 'estado-revision';
 
-    ) || [];
+      return `
+        <tr>
+          <td><strong>${sanitize(item.codigo)}</strong></td>
+          <td>${sanitize(item.producto)}</td>
+          <td>${item.sistema}</td>
+          <td><strong>${item.fisico ?? '-'}</strong></td>
+          <td><strong style="color:${color}">${diffTxt}</strong></td>
+          <td><span class="${badgeClass}">${item.estado}</span></td>
+        </tr>`;
+    }).join('');
+  };
 
+  window.actualizarKPIs = function () {
+    const total = window.inventarioCache.length;
     let exactos = 0;
     let faltantes = 0;
     let sobrantes = 0;
 
-    // ========================================
-    // VARIABLES EXACTITUD GLOBAL
-    // ========================================
-
-    let totalSistema = 0;
-    let totalDiferencias = 0;
-
-    historial.forEach(function(item){
-
-      const sistema =
-      Number(item.sistema || 0);
-
-      const fisico =
-      Number(item.fisico || 0);
-
-      const diferencia =
-      Math.abs(fisico - sistema);
-
-      // ========================================
-      // KPIs
-      // ========================================
-
-      if(fisico === sistema){
-        exactos++;
+    window.inventarioCache.forEach(item => {
+      if (item.conteo_fisico !== null && item.conteo_fisico !== undefined) {
+        const diff = Number(item.diferencia);
+        if (diff === 0) exactos++;
+        else if (diff < 0) faltantes++;
+        else if (diff > 0) sobrantes++;
       }
-
-      if(fisico < sistema){
-        faltantes++;
-      }
-
-      if(fisico > sistema){
-        sobrantes++;
-      }
-
-      // ========================================
-      // ACUMULAR PARA EXACTITUD GLOBAL
-      // ========================================
-
-      totalSistema += sistema;
-
-      totalDiferencias += diferencia;
-
     });
 
-    const totalConteos =
-    historial.length;
-
-    // ========================================
-    // CALCULAR EXACTITUD GLOBAL
-    // ========================================
-
-    let exactitudGeneral = '0.00';
-
-    if(totalSistema > 0){
-
-      exactitudGeneral = (
-
-        (
-          1 -
-
-          (
-            totalDiferencias /
-            totalSistema
-          )
-
-        ) * 100
-
-      ).toFixed(2);
-
-      // Evitar porcentajes negativos
-      if(Number(exactitudGeneral) < 0){
-
-        exactitudGeneral = '0.00';
-
-      }
-
-    }
-
-    // ========================================
-    // ACTUALIZAR KPIs
-    // ========================================
-
-    actualizarTexto(
-      'kpiTotal',
-      totalConteos
-    );
-
-    actualizarTexto(
-      'kpiExactos',
-      exactos
-    );
-
-    actualizarTexto(
-      'kpiFaltantes',
-      faltantes
-    );
-
-    actualizarTexto(
-      'kpiSobrantes',
-      sobrantes
-    );
-
-    actualizarTexto(
-      'kpiExactitud',
-      exactitudGeneral + '%'
-    );
-
-  }
-
-  catch(error){
-
-    console.log(
-      'Error actualizarKPIs:',
-      error
-    );
-
-  }
-
-};
-
-// ========================================
-// FILTRAR INVENTARIO
-// ========================================
-
-function filtrarInventario(){
-
-  try{
-
-    const texto =
-
-    (
-      buscadorInventario?.value || ''
-    )
-
-    .toLowerCase();
-
-    const filtrados =
-
-    window.inventario.filter(
-
-      function(item){
-
-        return (
-
-          String(
-            item.codigo || ''
-          )
-
-          .toLowerCase()
-
-          .includes(texto)
-
-          ||
-
-          String(
-            item.producto || ''
-          )
-
-          .toLowerCase()
-
-          .includes(texto)
-
-        );
-
-      }
-
-    );
-
-    window.renderInventario(
-      filtrados
-    );
-
-  }
-
-  catch(error){
-
-    console.log(error);
-
-  }
-
-}
-
-// ========================================
-// EXPORTAR EXCEL
-// ========================================
-
-function exportarExcel(){
-
-  try{
-
-    const historial =
-
-    JSON.parse(
-
-      localStorage.getItem(
-        'historial'
-      )
-
-    ) || [];
-
-    if(historial.length === 0){
-
-      notifAlert(
-        'No hay datos'
-      );
-
-      return;
-
-    }
-
-    const worksheet =
-
-    XLSX.utils.json_to_sheet(
-      historial
-    );
-
-    const workbook =
-
-    XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(
-
-      workbook,
-      worksheet,
-      'Conteos'
-
-    );
-
-    XLSX.writeFile(
-
-      workbook,
-      'inventario.xlsx'
-
-    );
-
-  }
-
-  catch(error){
-
-    console.log(error);
-
-  }
-
-}
-
-// ========================================
-// REINICIAR INVENTARIO
-// ========================================
-
-async function reiniciarInventario(){
-
-  try{
-
-    if(
-      !window.tienePermiso(
-        'inventario',
-        'eliminar'
-      )
-    ){
-
-      notifAlert('No tiene permisos');
-      return;
-
-    }
-
-    const confirmar = await Notif.confirm(
-      'Se borrarán todos los productos cargados desde Excel. El historial de conteos NO se verá afectado. Esta acción no se puede deshacer.',
-      '¿Reiniciar inventario cargado?'
-    );
-
-    if(!confirmar){
-      return;
-    }
-
-    // ==============================
-    // ELIMINAR INVENTARIO SUPABASE
-    // ==============================
-
-    const { error } =
-
-    await window.supabaseClient
-
-    .from("inventario")
-
-    .delete()
-
-    .neq("id",0);
-
-    if(error){
-
-      console.error(error);
-
-      notifAlert(
-        "Error eliminando el inventario."
-      );
-
-      return;
-
-    }
-
-    // ==============================
-    // LIMPIAR SOLO EL EXCEL CARGADO
-    // (el historial de conteos se conserva)
-    // ==============================
-
-    window.inventario = [];
-
-    // ==============================
-    // ACTUALIZAR PANTALLA
-    // ==============================
-
-    window.renderInventario();
-
-    window.actualizarKPIs();
-
-    if(typeof window.refrescarDashboardSiActivo === "function"){
-      window.refrescarDashboardSiActivo();
-    }
-
-    notifAlert(
-      "Inventario cargado reiniciado. El historial de conteos se conservó."
-    );
-
-  }
-
-  catch(error){
-
-    console.error(error);
-
-  }
-
-}
-// ========================================
-// HELPERS
-// ========================================
-
-function actualizarTexto(id,valor){
-
-  const elemento =
-
-  document.getElementById(id);
-
-  if(elemento){
-
-    elemento.innerText =
-    valor;
-
-  }
-
-}
-
-// ========================================
-// PERMISOS
-// ========================================
-
-function aplicarPermisosInventario(){
-
-  if(
-
-    !window.tienePermiso(
-      'inventario',
-      'crear'
-    )
-
-  ){
-
-    if(excelFile){
-
-      excelFile.style.display =
-      'none';
-
-    }
-
-  }
-
-  if(
-
-    !window.tienePermiso(
-      'inventario',
-      'editar'
-    )
-
-  ){
-
-    if(guardarConteoBtn){
-
-      guardarConteoBtn.style.display =
-      'none';
-
-    }
-
-  }
-
-  if(
-
-    !window.tienePermiso(
-      'inventario',
-      'eliminar'
-    )
-
-  ){
-
-    if(reiniciarInventarioBtn){
-
-      reiniciarInventarioBtn.style.display =
-      'none';
-
-    }
-
-  }
-
-}
-
-// =====================================
-// ABRIR MODAL NOVEDAD
-// =====================================
-
-window.abrirModalNovedad = function(){
-
-  const modal = document.getElementById(
-    'modalNovedadInventario'
-  );
-
-  if(modal){
-
-    modal.classList.add(
-      'active'
-    );
-
-  }
-
-};
-
-// =====================================
-// CERRAR MODAL NOVEDAD
-// =====================================
-
-window.cerrarModalNovedad = function(){
-
-  const modal = document.getElementById(
-    'modalNovedadInventario'
-  );
-
-  if(modal){
-
-    modal.classList.remove(
-      'active'
-    );
-
-  }
-
-};
-
-// =====================================
-// NOTA: El dashboard/gráficas de inventario ahora vive en su propia
-// página (inventario_graficos.html + inventario_graficos.js).
-// El botón "📊 Dashboard" navega directamente allí.
-// =====================================
-
-// =====================================
-// ABRIR SIESA
-// =====================================
-
-window.abrirSiesa = function () {
-    window.open(
-        "https://siesaerp05.siesacloud.com/~~App12/",
-        "_blank"
-    );
-};
-
-// =====================================
-// GUARDAR NOVEDAD INVENTARIO
-// =====================================
-
-var guardarNovedadBtn =
-document.getElementById(
-  'guardarNovedadBtn'
-);
-
-if(guardarNovedadBtn){
-
-  guardarNovedadBtn.onclick =
-  async function(){
-
-    try{
-
-      const codigo =
-      document.getElementById(
-        'novedadCodigo'
-      ).value.trim();
-
-      const material =
-      document.getElementById(
-        'novedadMaterial'
-      ).value.trim();
-
-      const stockSistema =
-      document.getElementById(
-        'novedadSistema'
-      ).value;
-
-      const conteoFisico =
-      document.getElementById(
-        'novedadFisico'
-      ).value;
-
-      const tipo =
-      document.getElementById(
-        'novedadTipo'
-      ).value;
-
-      const observacion =
-      document.getElementById(
-        'novedadObservacion'
-      ).value.trim();
-
-      if(
-        !codigo ||
-        !material ||
-        !observacion
-      ){
-
-        notifAlert(
-          'Complete todos los campos obligatorios'
-        );
-
-        return;
-
-      }
-
-      const usuarioLogueado =
-
-      JSON.parse(
-
-        localStorage.getItem(
-          'usuarioLogueado'
-        )
-
-      );
-
-      const response =
-
-      await window.supabaseClient
-
-      .from(
-        'novedades_inventario'
-      )
-
-      .insert([{
-
-        codigo:
-        codigo,
-
-        material:
-        material,
-
-        stock_sistema:
-        Number(stockSistema),
-
-        conteo_fisico:
-        Number(conteoFisico),
-
-        tipo_novedad:
-        tipo,
-
-        observacion:
-        observacion,
-
-        usuario:
-        usuarioLogueado?.usuario || 'Sistema'
-
-      }]);
-
-      if(response.error){
-
-        console.log(
-          response.error
-        );
-
-        notifAlert(
-          response.error.message
-        );
-
-        return;
-
-      }
-
-      notifAlert(
-        'Novedad registrada correctamente'
-      );
-
-      if(typeof renderNovedades === 'function'){
-
-        await renderNovedades();
-
-      }
-
-      cerrarModalNovedad();
-
-    }
-
-    catch(error){
-
-      console.log(error);
-
-      notifAlert(
-        error.message
-      );
-
-    }
-
+    const contados = exactos + faltantes + sobrantes;
+    const exactitud = contados > 0 ? ((exactos / contados) * 100).toFixed(1) : '0.0';
+
+    if ($('kpiTotal')) $('kpiTotal').innerText = total.toLocaleString();
+    if ($('kpiExactos')) $('kpiExactos').innerText = exactos.toLocaleString();
+    if ($('kpiFaltantes')) $('kpiFaltantes').innerText = faltantes.toLocaleString();
+    if ($('kpiSobrantes')) $('kpiSobrantes').innerText = sobrantes.toLocaleString();
+    if ($('kpiExactitud')) $('kpiExactitud').innerText = `${exactitud}%`;
   };
 
-}
-
-// =====================================
-// RENDER NOVEDADES INVENTARIO
-// =====================================
-
-window.renderNovedades = async function(){
-
-  try{
-
-    const body =
-    document.getElementById(
-      'novedadesBody'
-    );
-
-    if(!body){
+  // ==================================================================
+  // 6. EXPORTACIÓN Y REINICIO
+  // ==================================================================
+  function exportarExcel() {
+    if (window.inventarioCache.length === 0) {
+      notificar('No hay datos en inventario para exportar.');
       return;
     }
 
-    const response =
+    const exportData = window.inventarioCache.map(i => ({
+      'Código': i.codigo,
+      'Producto': i.producto || i.descripcion || '',
+      'Ubicación': i.ubicacion || 'Principal',
+      'Stock Sistema': extraerStock(i),
+      'Conteo Físico': i.conteo_fisico ?? '',
+      'Diferencia': i.diferencia ?? '',
+      'Estado': i.estado || 'Pendiente'
+    }));
 
-    await window.supabaseClient
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+    XLSX.writeFile(wb, `Inventario_Control_${new Date().toISOString().split('T')[0]}.xlsx`);
 
-    .from('novedades_inventario')
+    notificar('Archivo Excel exportado con éxito.', 'success');
+  }
 
-    .select('*')
+  async function reiniciarInventario() {
+    if (typeof window.tienePermiso === 'function' && !window.tienePermiso('inventario', 'eliminar')) {
+      notificar('No cuenta con permisos para reiniciar el inventario.');
+      return;
+    }
 
-    .order(
-      'id',
-      {
-        ascending:false
+    if (!confirm('¿Desea vaciar y reiniciar todos los registros del inventario cargado?')) return;
+
+    if (window.supabaseClient) {
+      await window.supabaseClient.from('inventario').delete().neq('id', 0);
+    }
+
+    window.inventarioCache = [];
+    window.historialConteos = [];
+    localStorage.removeItem('inventario');
+
+    window.renderInventario();
+    window.renderHistorial();
+    window.actualizarKPIs();
+    notificar('Inventario reiniciado exitosamente.', 'success');
+  }
+
+  window.abrirSiesa = function () {
+    window.open('https://siesa.com', '_blank');
+  };
+
+  // ==================================================================
+  // 7. LISTENERS Y EVENTOS
+  // ==================================================================
+  document.addEventListener('input', function (e) {
+    if (e.target && e.target.id === 'buscadorInventario') {
+      const q = e.target.value.toLowerCase().trim();
+      if (!q) {
+        window.renderInventario();
+        return;
       }
-    );
-
-    if(response.error){
-
-      console.log(
-        response.error
+      const filtrados = window.inventarioCache.filter(p =>
+        String(p.codigo || '').toLowerCase().includes(q) ||
+        String(p.producto || p.descripcion || '').toLowerCase().includes(q) ||
+        String(p.ubicacion || '').toLowerCase().includes(q)
       );
-
-      return;
-
+      window.renderInventario(filtrados);
     }
+  });
 
-    const data =
-    response.data || [];
-
-    body.innerHTML = '';
-
-    if(data.length === 0){
-
-      body.innerHTML =
-
-      '<tr>' +
-
-      '<td colspan="8">' +
-
-      'No hay novedades registradas' +
-
-      '</td>' +
-
-      '</tr>';
-
-      return;
-
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target && (e.target.id === 'codigoInput' || e.target.id === 'conteoFisico')) {
+      e.preventDefault();
+      if (e.target.id === 'codigoInput') buscarProducto();
+      else if (e.target.id === 'conteoFisico') registrarConteo();
     }
+  });
 
-    data.forEach(function(item){
-
-  body.innerHTML +=
-
-  '<tr>' +
-
-  '<td>' +
-  new Date(
-    item.created_at
-  ).toLocaleString('es-CO') +
-  '</td>' +
-
-  '<td>' +
-  item.codigo +
-  '</td>' +
-
-  '<td>' +
-  item.material +
-  '</td>' +
-
-  '<td>' +
-  item.tipo_novedad +
-  '</td>' +
-
-  '<td>' +
-  item.stock_sistema +
-  '</td>' +
-
-  '<td>' +
-  item.conteo_fisico +
-  '</td>' +
-
-  '<td>' +
-item.usuario +
-'</td>' +
-
-'<td>' +
-
-'<button class="btn-primary" onclick="verObservacion(`' +
-(item.observacion || '') +
-'`)">' +
-
-'👁️' +
-
-'</button>' +
-
-'</td>' +
-
-'<td>' +
-
-'<button class="btn-eliminar" onclick="eliminarNovedad(' +
-item.id +
-')">' +
-
-'🗑️' +
-
-'</button>' +
-
-'</td>' +
-
-  '</tr>';
-
-});
-
-  }
-
-  catch(error){
-
-    console.log(
-      'Error renderNovedades:',
-      error
-    );
-
-  }
-
-};
-
-
-// =====================================
-// ELIMINAR NOVEDAD
-// =====================================
-
-window.eliminarNovedad = async function(id){
-
-  try{
-
-    const confirmar = await Notif.confirm(
-      'Esta acción no se puede deshacer.',
-      '¿Eliminar novedad?'
-    );
-
-    if(!confirmar){
-
-      return;
-
+  document.addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'buscarBtn') {
+      e.preventDefault();
+      buscarProducto();
     }
-
-    const response =
-
-    await window.supabaseClient
-
-    .from(
-      'novedades_inventario'
-    )
-
-    .delete()
-
-    .eq(
-      'id',
-      Number(id)
-    );
-
-    if(response.error){
-
-      notifAlert(
-        response.error.message
-      );
-
-      return;
-
+    if (e.target && e.target.id === 'guardarConteo') {
+      e.preventDefault();
+      registrarConteo();
     }
-
-    await window.renderNovedades();
-
-    notifAlert(
-      'Novedad eliminada'
-    );
-
-  }
-
-  catch(error){
-
-    console.log(error);
-
-  }
-
-};
-
-// =====================================
-// DIFERENCIA AUTOMATICA NOVEDAD
-// =====================================
-
-window.calcularDiferenciaNovedad = function(){
-
-  const sistema = Number(
-    document.getElementById(
-      'novedadSistema'
-    )?.value || 0
-  );
-
-  const fisico = Number(
-    document.getElementById(
-      'novedadFisico'
-    )?.value || 0
-  );
-
-  const diferencia =
-  fisico - sistema;
-
-  const campo =
-
-  document.getElementById(
-    'novedadDiferencia'
-  );
-
-  const tipo =
-
-  document.getElementById(
-    'novedadTipo'
-  );
-
-  if(!campo){
-    return;
-  }
-
-  campo.value = diferencia;
-
-  campo.style.fontWeight =
-  '700';
-
-  campo.style.fontSize =
-  '18px';
-
-  if(diferencia < 0){
-
-    campo.style.color =
-    '#dc3545';
-
-    if(tipo){
-      tipo.value =
-      'Faltante';
+    if (e.target && e.target.id === 'exportarExcel') {
+      e.preventDefault();
+      exportarExcel();
     }
-
-  }
-
-  else if(diferencia > 0){
-
-    campo.style.color =
-    '#28a745';
-
-    if(tipo){
-      tipo.value =
-      'Sobrante';
+    if (e.target && e.target.id === 'reiniciarInventario') {
+      e.preventDefault();
+      reiniciarInventario();
     }
+    if (e.target && e.target.id === 'guardarNovedadBtn') {
+      e.preventDefault();
+      guardarNovedad();
+    }
+  });
 
+  const fileInp = $('excelFile');
+  if (fileInp) {
+    fileInp.onchange = leerExcel;
   }
 
-  else{
-
-    campo.style.color =
-    '#0d6efd';
-
-  }
-
-};
-
-// =====================================
-// VER OBSERVACION
-// =====================================
-
-window.verObservacion = function(texto){
-
-  document.getElementById(
-    'textoObservacion'
-  ).innerText = texto;
-
-  document
-  .getElementById(
-    'modalObservacion'
-  )
-  .classList.add(
-    'active'
-  );
-
-};
-
-window.cerrarObservacion = function(){
-
-  document
-  .getElementById(
-    'modalObservacion'
-  )
-  .classList.remove(
-    'active'
-  );
-
-};
-
-
-// ========================================
-// INICIO
-// ========================================
-
-aplicarPermisosInventario();
-
-window.cargarInventario();
-
-window.renderHistorial();
-
-window.actualizarKPIs();
-
-if(
-  typeof window.renderNovedades ===
-  'function'
-){
-  window.renderNovedades();
-}
+  // Inicialización
+  window.cargarInventarioBD();
+  window.renderHistorial();
+})();
