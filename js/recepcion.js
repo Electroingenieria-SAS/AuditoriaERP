@@ -1,6 +1,6 @@
 /**
  * ====================================================================
- * RECEPCION.JS — Módulo de Recepción & Devoluciones (Versión Protegida)
+ * RECEPCION.JS — Módulo Integral de Recepción Logística & Compras Pro
  * ====================================================================
  */
 
@@ -12,7 +12,7 @@
     clearInterval(window.refreshRecepcionInterval);
   }
 
-  // 2. Estado local y banderas contra duplicados
+  // 2. Estado local y control de envíos
   let soportesSeleccionados = [];
   let guardandoOperacionActiva = false;
   window.recepcionesCacheDatos = [];
@@ -44,7 +44,7 @@
 
   function notificar(mensaje, tipo = 'warning') {
     if (typeof window.mostrarNotificacion === 'function') {
-      window.mostrarNotificacion('Recepción & Devoluciones', mensaje, tipo);
+      window.mostrarNotificacion('Recepción', mensaje, tipo);
     } else if (typeof window.notifAlert === 'function') {
       window.notifAlert(mensaje);
     } else {
@@ -58,16 +58,16 @@
   window.abrirModal = function (id) {
     const m = $(id);
     if (m) {
-      m.style.display = 'flex';
       m.classList.add('active');
+      m.style.display = 'flex';
     }
   };
 
   window.cerrarModal = function (id) {
     const m = $(id);
     if (m) {
-      m.style.display = 'none';
       m.classList.remove('active');
+      m.style.display = 'none';
     }
   };
 
@@ -76,66 +76,20 @@
   window.cerrarModalSoportesRecepcion = () => window.cerrarModal('modalSoportesRecepcion');
 
   // ==================================================================
-  // CAMBIO DE FLUJO (RECEPCIÓN / DEV. PROVEEDOR / DEV. PROYECTOS)
+  // CÁLCULO DINÁMICO DE % REVISADO
   // ==================================================================
-  window.cambiarModo = function (modo) {
-    setVal('tipoOperacionInput', modo);
-
-    document.querySelectorAll('.btn-flujo').forEach(b => b.classList.remove('active'));
-
-    const seccRec = document.querySelectorAll('.seccion-recepcion');
-    const seccDevProv = document.querySelectorAll('.seccion-dev-prov');
-    const seccDevProy = document.querySelectorAll('.seccion-dev-proy');
-
-    seccRec.forEach(e => e.style.display = 'none');
-    seccDevProv.forEach(e => e.style.display = 'none');
-    seccDevProy.forEach(e => e.style.display = 'none');
-
-    const selectEstado = $('estadoOperacionInput');
-
-    if (modo === 'Recepcion') {
-      $('btnModoRecepcion')?.classList.add('active');
-      seccRec.forEach(e => e.style.display = '');
-
-      $('recOperacionBadge').innerText = 'Modo: Recepción Compras';
-      $('panelOperacionIcon').innerText = '📥';
-      $('panelOperacionTitulo').innerText = 'Registrar Recepción';
-      $('labelOrigen').innerText = 'PROVEEDOR / RAZÓN SOCIAL';
-      $('origenInput').placeholder = 'Nombre de la empresa proveedora';
-      $('labelCantidad').innerText = 'CANTIDAD TOTAL RECIBIDA';
-      $('txtBtnSubmit').innerText = 'Guardar Recepción';
-      if (selectEstado) selectEstado.value = 'Conforme';
-
-    } else if (modo === 'DevolucionProv') {
-      $('btnModoDevolucionProv')?.classList.add('active');
-      seccDevProv.forEach(e => e.style.display = '');
-
-      $('recOperacionBadge').innerText = 'Modo: Devolución Proveedor';
-      $('panelOperacionIcon').innerText = '📤';
-      $('panelOperacionTitulo').innerText = 'Registrar Dev. Proveedor';
-      $('labelOrigen').innerText = 'PROVEEDOR DESTINO';
-      $('origenInput').placeholder = 'Proveedor al que se retorna el material';
-      $('labelCantidad').innerText = 'CANTIDAD A DEVOLVER';
-      $('txtBtnSubmit').innerText = 'Registrar Devolución a Proveedor';
-      if (selectEstado) selectEstado.value = 'Dañado';
-
-    } else if (modo === 'DevolucionProy') {
-      $('btnModoDevolucionProy')?.classList.add('active');
-      seccDevProy.forEach(e => e.style.display = '');
-
-      $('recOperacionBadge').innerText = 'Modo: Devolución Proyecto';
-      $('panelOperacionIcon').innerText = '🏗️';
-      $('panelOperacionTitulo').innerText = 'Reintegro de Proyecto';
-      $('labelOrigen').innerText = 'PROYECTO / CUADRILLA';
-      $('origenInput').placeholder = 'Nombre de la obra, contrato o liniero';
-      $('labelCantidad').innerText = 'CANTIDAD REINTEGRADA';
-      $('txtBtnSubmit').innerText = 'Registrar Reintegro de Obra';
-      if (selectEstado) selectEstado.value = 'Conforme';
+  function calcularPorcentajeEnVivo() {
+    const cant = Number(getVal('cantidadInput')) || 0;
+    const rev = Number(getVal('revisadasInput')) || 0;
+    if (cant > 0 && rev >= 0) {
+      const pct = Math.min((rev / cant) * 100, 100).toFixed(1);
+      const kpi = $('kpiRevisado');
+      if (kpi) kpi.innerText = `${pct}%`;
     }
-  };
+  }
 
   // ==================================================================
-  // ADJUNTOS
+  // GESTIÓN DE SOPORTES DOCUMENTALES
   // ==================================================================
   function totalSoportes() {
     return soportesSeleccionados.length;
@@ -155,16 +109,16 @@
         tamano: archivo.size
       });
     }
-    renderSoportesPreview();
+    renderSoportesTemporales();
   }
 
   function agregarDrive() {
-    const input = $('driveLinkInput');
+    const input = $('driveLinkRecepcion');
     if (!input) return;
     const url = input.value.trim();
 
     if (!url || !url.startsWith('https://')) {
-      notificar('Pegue un enlace válido de Google Drive.');
+      notificar('Ingrese un enlace válido de Google Drive.');
       return;
     }
 
@@ -176,34 +130,34 @@
     });
 
     input.value = '';
-    renderSoportesPreview();
+    renderSoportesTemporales();
   }
 
-  function renderSoportesPreview() {
-    const lista = $('listaSoportesPreview');
-    const badge = $('contadorSoportes');
-    if (badge) badge.innerText = `${totalSoportes()} / 10`;
+  function renderSoportesTemporales() {
+    const lista = $('listaSoportesRecepcion');
+    const contador = $('contadorSoportesRecepcion');
+    if (contador) contador.textContent = `${totalSoportes()} / 10`;
     if (!lista) return;
 
     if (soportesSeleccionados.length === 0) {
-      lista.innerHTML = '<small class="rec-vacio-txt">Sin archivos anexados.</small>';
+      lista.innerHTML = '<small class="adjunto-vacio-txt">Sin archivos anexados.</small>';
       return;
     }
 
     lista.innerHTML = soportesSeleccionados.map((s, idx) => `
       <div class="adjunto-item">
         <span>${s.tipo === 'drive' ? '🔗' : '📄'} ${sanitize(s.nombre)}</span>
-        <button type="button" class="adjunto-btn--eliminar" onclick="window.eliminarSoporteTemp(${idx})">✕</button>
+        <button type="button" class="adjunto-btn--eliminar" onclick="window.eliminarSoporteTemp(${idx})">Quitar</button>
       </div>
     `).join('');
   }
 
-  window.eliminarSoporteTemp = function (idx) {
-    soportesSeleccionados.splice(Number(idx), 1);
-    renderSoportesPreview();
+  window.eliminarSoporteTemp = function (index) {
+    soportesSeleccionados.splice(Number(index), 1);
+    renderSoportesTemporales();
   };
 
-  async function subirSoportesStorage() {
+  async function subirSoportes() {
     const bucket = window.ERP_CONFIG?.STORAGE_BUCKETS?.RECEPCIONES || 'recepciones-pdf';
     const guardados = [];
 
@@ -214,11 +168,14 @@
       }
 
       const archivo = s.archivo;
-      const limpio = String(archivo.name || 'soporte').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const limpio = String(archivo.name || 'doc').replace(/[^a-zA-Z0-9._-]/g, '_');
       const ruta = `recepciones/${Date.now()}_${limpio}`;
 
       if (window.supabaseClient) {
-        const { error } = await window.supabaseClient.storage.from(bucket).upload(ruta, archivo, { upsert: false });
+        const { error } = await window.supabaseClient.storage
+          .from(bucket)
+          .upload(ruta, archivo, { upsert: false });
+
         if (error) throw new Error(`Error al subir ${archivo.name}: ${error.message}`);
         const urlData = window.supabaseClient.storage.from(bucket).getPublicUrl(ruta);
 
@@ -234,51 +191,37 @@
   }
 
   // ==================================================================
-  // GUARDADO EN SUPABASE (BLOQUEO CONTRA DOBLE CLIC)
+  // GUARDAR RECEPCIÓN (CAMPOS ORIGINALES Y SIN DOBLE CLIC)
   // ==================================================================
-  async function guardarOperacion() {
+  async function guardarRecepcion() {
     if (guardandoOperacionActiva) return;
 
-    const btn = $('guardarOperacionBtn');
+    const btn = $('guardarRecepcion');
     try {
-      const modo = getVal('tipoOperacionInput') || 'Recepcion';
-      const origen = getVal('origenInput').trim();
+      const proveedor = getVal('proveedorInput').trim();
       const material = getVal('materialInput').trim();
+      const tipoRecepcion = getVal('tipoRecepcionInput');
       const cantidad = Number(getVal('cantidadInput'));
+      const revisadas = Number(getVal('revisadasInput')) || 0;
+      const novedades = Number(getVal('novedadesInput')) || 0;
+      const faltantes = Number(getVal('faltantesInput')) || 0;
       const observacion = getVal('observacionInput').trim();
-      const estado = getVal('estadoOperacionInput');
+      const estado = getVal('estadoRecepcionInput');
 
-      if (!origen || !material || cantidad <= 0) {
-        notificar('Complete los campos obligatorios: Origen/Proveedor, Material y Cantidad.');
+      if (!proveedor || !material || cantidad <= 0) {
+        notificar('Complete los campos obligatorios: Proveedor, Material y Cantidad Total.');
         return;
       }
 
       guardandoOperacionActiva = true;
       if (btn) btn.disabled = true;
 
-      let tipoRecepcion = '';
-      let revisadas = 0;
-      let novedades = 0;
-      let faltantes = 0;
-      let pct = '100.0';
-
-      if (modo === 'Recepcion') {
-        tipoRecepcion = getVal('tipoEmbalajeInput') || 'Cajas';
-        revisadas = Number(getVal('revisadasInput')) || 0;
-        novedades = Number(getVal('novedadesInput')) || 0;
-        faltantes = Number(getVal('faltantesInput')) || 0;
-        pct = cantidad > 0 ? Math.min((revisadas / cantidad) * 100, 100).toFixed(1) : '0.0';
-      } else if (modo === 'DevolucionProv') {
-        tipoRecepcion = `Devolución Prov: ${getVal('motivoProvInput')}`;
-        novedades = cantidad;
-      } else if (modo === 'DevolucionProy') {
-        tipoRecepcion = `Reintegro Proyecto: ${getVal('motivoProyInput')}`;
-      }
+      const pct = Math.min((revisadas / cantidad) * 100, 100).toFixed(1);
 
       let pdfUrl = '[]';
       try {
-        const subidos = await subirSoportesStorage();
-        pdfUrl = JSON.stringify(subidos);
+        const cargados = await subirSoportes();
+        pdfUrl = JSON.stringify(cargados);
       } catch (err) {
         notificar(err.message, 'error');
         return;
@@ -287,18 +230,18 @@
       const usuario = window.usuarioLogueado?.usuario || 'Usuario';
 
       const payload = {
-        proveedor: origen,
-        material: material,
+        proveedor,
+        material,
         tipo_recepcion: tipoRecepcion,
-        cantidad: cantidad,
-        revisadas: revisadas,
-        novedades: novedades,
-        faltantes: faltantes,
+        cantidad,
+        revisadas,
+        novedades,
+        faltantes,
         porcentaje_revisado: pct,
-        observacion: observacion,
+        observacion,
         comentario_validacion: '',
-        seguimiento: `Registro inicial por: ${usuario} (${modo})`,
-        estado: estado,
+        seguimiento: `Registro creado por: ${usuario}`,
+        estado,
         novedad_original: estado,
         pdf_url: pdfUrl,
         usuario_recepcion: usuario,
@@ -313,13 +256,13 @@
         }
       }
 
-      notificar('Operación registrada exitosamente', 'success');
+      notificar('Recepción registrada exitosamente', 'success');
       limpiarFormulario();
       await window.renderRecepciones();
       await window.actualizarKPIsRecepcion();
 
     } catch (e) {
-      console.error('Excepción al registrar operación:', e);
+      console.error('Error registrando recepción:', e);
     } finally {
       guardandoOperacionActiva = false;
       if (btn) btn.disabled = false;
@@ -327,7 +270,7 @@
   }
 
   function limpiarFormulario() {
-    setVal('origenInput', '');
+    setVal('proveedorInput', '');
     setVal('materialInput', '');
     setVal('cantidadInput', '');
     setVal('revisadasInput', '');
@@ -335,22 +278,20 @@
     setVal('faltantesInput', '0');
     setVal('observacionInput', '');
 
-    const fileInp = $('archivoInput');
-    if (fileInp) fileInp.value = '';
-    const driveInp = $('driveLinkInput');
-    if (driveInp) driveInp.value = '';
+    const fileInput = $('pdfInput');
+    if (fileInput) fileInput.value = '';
+    const driveInput = $('driveLinkRecepcion');
+    if (driveInput) driveInput.value = '';
 
     soportesSeleccionados = [];
-    renderSoportesPreview();
+    renderSoportesTemporales();
   }
 
   // ==================================================================
-  // RENDERIZADO DE TABLAS
+  // RENDERIZADO DE TABLA DE RECEPCIONES
   // ==================================================================
   window.renderRecepciones = async function (datos = null) {
     const bodyRec = $('recepcionesBody');
-    const bodyDevProv = $('devProveedorBody');
-    const bodyDevProy = $('devProyectosBody');
     if (!bodyRec) return;
 
     try {
@@ -368,135 +309,194 @@
         lista = window.recepcionesCacheDatos || [];
       }
 
-      const recepciones = lista.filter(i => 
-        !String(i.tipo_recepcion || '').startsWith('Devolución') && 
-        !String(i.tipo_recepcion || '').startsWith('Reintegro')
-      );
-
-      const devProveedor = lista.filter(i => 
-        String(i.tipo_recepcion || '').startsWith('Devolución')
-      );
-
-      const devProyectos = lista.filter(i => 
-        String(i.tipo_recepcion || '').startsWith('Reintegro')
-      );
-
-      // Tabla 1: Recepciones
-      if (recepciones.length === 0) {
-        bodyRec.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:26px;color:#64748b;">No hay recepciones de compras registradas.</td></tr>`;
-      } else {
-        bodyRec.innerHTML = recepciones.map(item => `
-          <tr>
-            <td><strong>${sanitize(item.proveedor)}</strong></td>
-            <td>${sanitize(item.material)}</td>
-            <td>${sanitize(item.tipo_recepcion || '-')}</td>
-            <td>${item.cantidad || 0}</td>
-            <td><strong>${item.porcentaje_revisado || 0}%</strong></td>
-            <td>${item.novedades || 0}</td>
-            <td><span class="estado-badge estado-gestion">${sanitize(item.estado)}</span></td>
-            <td>${new Date(item.created_at).toLocaleDateString('es-CO')}</td>
-            <td style="text-align:center;">
-              <div class="acciones-tabla-mini">
-                <button type="button" class="btn-mini" title="Seguimiento" onclick="window.verGestion(${item.id})">📋</button>
-                <button type="button" class="btn-mini" title="Observación" onclick="window.verObservacion(${item.id})">👁️</button>
-                <button type="button" class="btn-mini" title="Soportes" onclick="window.verSoportes(${item.id})">📎</button>
-                <button type="button" class="btn-mini btn-eliminar-mini" title="Eliminar" onclick="window.eliminarOperacion(${item.id})">🗑️</button>
-              </div>
-            </td>
-          </tr>
-        `).join('');
+      if (lista.length === 0) {
+        bodyRec.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:26px;color:#64748b;">No hay recepciones registradas</td></tr>`;
+        return;
       }
 
-      // Tabla 2: Devoluciones a Proveedor
-      if (bodyDevProv) {
-        if (devProveedor.length === 0) {
-          bodyDevProv.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:26px;color:#64748b;">No hay devoluciones a proveedores registradas.</td></tr>`;
-        } else {
-          bodyDevProv.innerHTML = devProveedor.map(item => `
-            <tr>
-              <td><strong>${sanitize(item.proveedor)}</strong></td>
-              <td>${sanitize(item.material)}</td>
-              <td><span class="estado-badge estado-cuarentena">${sanitize(item.tipo_recepcion)}</span></td>
-              <td><strong>${item.cantidad || 0}</strong></td>
-              <td><span class="estado-badge estado-gestion">${sanitize(item.estado)}</span></td>
-              <td>${new Date(item.created_at).toLocaleDateString('es-CO')}</td>
-              <td style="text-align:center;">
-                <div class="acciones-tabla-mini">
-                  <button type="button" class="btn-mini" title="Seguimiento" onclick="window.verGestion(${item.id})">📋</button>
-                  <button type="button" class="btn-mini" title="Observación" onclick="window.verObservacion(${item.id})">👁️</button>
-                  <button type="button" class="btn-mini" title="Soportes" onclick="window.verSoportes(${item.id})">📎</button>
-                  <button type="button" class="btn-mini btn-eliminar-mini" title="Eliminar" onclick="window.eliminarOperacion(${item.id})">🗑️</button>
-                </div>
-              </td>
-            </tr>
-          `).join('');
-        }
-      }
-
-      // Tabla 3: Devoluciones de Proyectos
-      if (bodyDevProy) {
-        if (devProyectos.length === 0) {
-          bodyDevProy.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:26px;color:#64748b;">No hay reintegros de proyectos registrados.</td></tr>`;
-        } else {
-          bodyDevProy.innerHTML = devProyectos.map(item => `
-            <tr>
-              <td><strong>${sanitize(item.proveedor)}</strong></td>
-              <td>${sanitize(item.material)}</td>
-              <td><span class="estado-badge estado-proy">${sanitize(item.tipo_recepcion)}</span></td>
-              <td><strong>${item.cantidad || 0}</strong></td>
-              <td><span class="estado-badge estado-conforme">${sanitize(item.estado)}</span></td>
-              <td>${new Date(item.created_at).toLocaleDateString('es-CO')}</td>
-              <td style="text-align:center;">
-                <div class="acciones-tabla-mini">
-                  <button type="button" class="btn-mini" title="Seguimiento" onclick="window.verGestion(${item.id})">📋</button>
-                  <button type="button" class="btn-mini" title="Observación" onclick="window.verObservacion(${item.id})">👁️</button>
-                  <button type="button" class="btn-mini" title="Soportes" onclick="window.verSoportes(${item.id})">📎</button>
-                  <button type="button" class="btn-mini btn-eliminar-mini" title="Eliminar" onclick="window.eliminarOperacion(${item.id})">🗑️</button>
-                </div>
-              </td>
-            </tr>
-          `).join('');
-        }
-      }
-
-      renderResumenMensual(lista);
+      bodyRec.innerHTML = lista.map(item => `
+        <tr>
+          <td><strong>${sanitize(item.proveedor)}</strong></td>
+          <td>${sanitize(item.material)}</td>
+          <td>${sanitize(item.tipo_recepcion || '-')}</td>
+          <td>${item.cantidad || 0}</td>
+          <td><strong>${item.porcentaje_revisado || 0}%</strong></td>
+          <td>${item.novedades || 0}</td>
+          <td><span class="estado-pendiente">${sanitize(item.novedad_original || item.estado)}</span></td>
+          <td><span class="estado-revision">${sanitize(item.estado)}</span></td>
+          <td>${new Date(item.created_at).toLocaleDateString('es-CO')}</td>
+          <td style="text-align:center;">
+            <div class="acciones-tabla-mini">
+              <button type="button" class="btn-mini" title="Gestión" onclick="window.validarRecepcion(${item.id})">📋</button>
+              <button type="button" class="btn-mini" title="Ver Observación" onclick="window.verObservacion(${item.id})">👁️</button>
+              <button type="button" class="btn-mini" title="Soportes" onclick="window.verSoportesRecepcion(${item.id})">📎</button>
+              <button type="button" class="btn-mini btn-eliminar-mini" title="Eliminar" onclick="window.eliminarRecepcion(${item.id})">🗑️</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
 
     } catch (err) {
       console.error(err);
     }
   };
 
-  function renderResumenMensual(lista) {
-    const body = $('dashboardRecepcionBody');
-    if (!body) return;
+  // ==================================================================
+  // MODAL GESTIÓN COMPRAS CON TIMELINE PRO RESTAURADO
+  // ==================================================================
+  window.validarRecepcion = async function (id) {
+    try {
+      window.recepcionGestionando = Number(id);
 
-    const meses = {};
-    lista.forEach(item => {
-      const fecha = item.created_at ? new Date(item.created_at) : new Date();
-      const mes = fecha.toLocaleString('es-CO', { month: 'long' });
-      if (!meses[mes]) meses[mes] = { recs: 0, falt: 0, sobr: 0, dan: 0, tot: 0 };
+      const { data: rec, error } = await window.supabaseClient
+        .from('recepciones')
+        .select('*')
+        .eq('id', Number(id))
+        .single();
 
-      meses[mes].recs += 1;
-      meses[mes].falt += Number(item.faltantes) || 0;
-      meses[mes].dan += Number(item.novedades) || 0;
-      meses[mes].tot += 1;
-    });
+      if (error || !rec) {
+        notificar('No se pudo consultar el registro de recepción.');
+        return;
+      }
 
-    body.innerHTML = Object.keys(meses).map(m => `
-      <tr>
-        <td><strong>${m.toUpperCase()}</strong></td>
-        <td>${meses[m].recs}</td>
-        <td><strong style="color:#DC2626">${meses[m].falt}</strong></td>
-        <td>${meses[m].sobr}</td>
-        <td><strong style="color:#D97706">${meses[m].dan}</strong></td>
-        <td><strong>${meses[m].tot}</strong></td>
-      </tr>
-    `).join('');
+      setVal('gestionEstadoInput', rec.estado || 'Pendiente');
+      setVal('gestionComentarioInput', '');
+
+      const timeline = $('timelineSeguimiento');
+      const countBadge = $('timelineCountBadge');
+
+      if (timeline) {
+        const textoSeguimiento = (rec.seguimiento || '').trim();
+
+        if (!textoSeguimiento) {
+          timeline.innerHTML = `
+            <div class="timeline-empty-state">
+              <div class="timeline-empty-icon">📋</div>
+              <h5>Sin intervenciones registradas</h5>
+              <p>Agregue un seguimiento en el formulario lateral para documentar acuerdos con proveedores.</p>
+            </div>`;
+          if (countBadge) countBadge.innerText = '0 Registros';
+        } else {
+          const bloques = textoSeguimiento.split('━━━━━━━━━━━━━━━━━━').reverse().filter(b => b.trim());
+
+          if (countBadge) {
+            countBadge.innerText = `${bloques.length} ${bloques.length === 1 ? 'Registro' : 'Registros'}`;
+          }
+
+          timeline.innerHTML = bloques.map((bloque, index) => {
+            const matchFecha = bloque.match(/📅\s*([^\n]+)/);
+            const matchUsuario = bloque.match(/👤(?:\s*Usuario:)?\s*([^\n]+)/i);
+            const matchEstado = bloque.match(/🏷️(?:\s*Estado:)?\s*([^\n]+)/i);
+
+            const fecha = matchFecha ? matchFecha[1].trim() : 'Fecha no registrada';
+            const usuario = matchUsuario ? matchUsuario[1].trim() : 'Compras';
+            const estado = matchEstado ? matchEstado[1].trim() : 'Seguimiento';
+            const inicial = usuario.charAt(0).toUpperCase();
+
+            let lineas = bloque.split('\n').map(l => l.trim()).filter(Boolean);
+            let lineasFiltradas = lineas.filter(l => {
+              const low = l.toLowerCase();
+              if (l.startsWith('📅') || l.startsWith('👤') || l.startsWith('🏷️') || l.startsWith('📝')) return false;
+              if (low === usuario.toLowerCase() || low === estado.toLowerCase()) return false;
+              if (low.startsWith('usuario:') || low.startsWith('estado:') || low.startsWith('comentario:')) return false;
+              return true;
+            });
+
+            let comentarioFinal = lineasFiltradas.join('\n').trim() || 'Sin comentario adicional.';
+
+            let badgeClass = 'badge-status-default';
+            const estadoLower = estado.toLowerCase();
+            if (estadoLower.includes('pendiente')) badgeClass = 'badge-status-pendiente';
+            else if (estadoLower.includes('gestión') || estadoLower.includes('gestion')) badgeClass = 'badge-status-gestion';
+            else if (estadoLower.includes('proveedor') || estadoLower.includes('contacto')) badgeClass = 'badge-status-proveedor';
+            else if (estadoLower.includes('solucion') || estadoLower.includes('conforme')) badgeClass = 'badge-status-solucionado';
+            else if (estadoLower.includes('cerrad') || estadoLower.includes('dañ')) badgeClass = 'badge-status-cerrado';
+
+            const esUltimo = index === bloques.length - 1;
+
+            return `
+              <div class="timeline-item-wrapper">
+                <div class="timeline-card-item">
+                  <div class="timeline-item-header">
+                    <div class="timeline-user-tag">
+                      <div class="user-tag-avatar">${inicial}</div>
+                      <span class="timeline-user-name">${sanitize(usuario)}</span>
+                    </div>
+                    <span class="timeline-date-chip">📅 ${sanitize(fecha)}</span>
+                  </div>
+
+                  <div>
+                    <span class="timeline-badge-status ${badgeClass}">● ${sanitize(estado)}</span>
+                  </div>
+
+                  <div class="timeline-comment-box">
+                    ${sanitize(comentarioFinal).replace(/\n/g, '<br>')}
+                  </div>
+                </div>
+
+                ${!esUltimo ? `
+                  <div class="timeline-separator">
+                    <div class="timeline-node-dot"></div>
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      window.abrirModal('modalGestion');
+    } catch (err) {
+      console.error('Error abriendo gestión:', err);
+    }
+  };
+
+  async function guardarGestion() {
+    const btn = $('guardarGestionBtn');
+    try {
+      const comentario = getVal('gestionComentarioInput').trim();
+      const estado = getVal('gestionEstadoInput');
+
+      if (!comentario) {
+        notificar('Ingrese los detalles o acuerdos para registrar el seguimiento.');
+        return;
+      }
+      if (!window.recepcionGestionando) return;
+
+      if (btn) btn.disabled = true;
+
+      const { data: rec } = await window.supabaseClient
+        .from('recepciones')
+        .select('*')
+        .eq('id', window.recepcionGestionando)
+        .single();
+
+      const fecha = new Date().toLocaleString('es-CO');
+      const usuario = window.usuarioLogueado?.usuario || 'Compras';
+      const entrada = `\n━━━━━━━━━━━━━━━━━━\n📅 ${fecha}\n👤 ${usuario}\n🏷️ Estado: ${estado}\n📝 ${comentario}\n`;
+      const nuevoSeguimiento = (rec.seguimiento || '') + entrada;
+
+      await window.supabaseClient
+        .from('recepciones')
+        .update({
+          estado: estado,
+          comentario_validacion: comentario,
+          seguimiento: nuevoSeguimiento
+        })
+        .eq('id', window.recepcionGestionando);
+
+      window.cerrarModalGestion();
+      await window.renderRecepciones();
+      await window.actualizarKPIsRecepcion();
+      notificar('Seguimiento guardado con éxito', 'success');
+
+    } catch (err) {
+      console.error(err);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
-  // ==================================================================
-  // ACCIONES INDIVIDUALES
-  // ==================================================================
   window.verObservacion = function (id) {
     const item = window.recepcionesCacheDatos.find(i => i.id === Number(id));
     const cont = $('contenidoObservacion');
@@ -504,7 +504,7 @@
     window.abrirModal('modalObservacion');
   };
 
-  window.verSoportes = function (id) {
+  window.verSoportesRecepcion = function (id) {
     const item = window.recepcionesCacheDatos.find(i => i.id === Number(id));
     const cont = $('contenidoSoportesRecepcion');
     if (!cont) return;
@@ -517,81 +517,24 @@
     }
 
     if (soportes.length === 0) {
-      cont.innerHTML = '<div class="rec-vacio-txt">No hay soportes anexados a este registro.</div>';
+      cont.innerHTML = '<div class="adjunto-vacio-txt">No hay soportes adjuntos registrados.</div>';
     } else {
       cont.innerHTML = soportes.map(s => `
-        <div class="adjunto-item" style="margin-bottom:8px;">
-          <span>${s.tipo === 'drive' ? '🔗' : '📄'} ${sanitize(s.nombre)}</span>
-          <button type="button" class="btn-rec-subir" onclick="window.open('${s.url}', '_blank')">Abrir</button>
+        <div class="adjunto-item">
+          <span>${sanitize(s.nombre)}</span>
+          <button type="button" class="btn-cargar-archivos" style="width:auto;padding:4px 12px;height:32px;" onclick="window.open('${s.url}', '_blank')">Abrir</button>
         </div>
       `).join('');
     }
-
     window.abrirModal('modalSoportesRecepcion');
   };
 
-  window.verGestion = async function (id) {
-    window.recepcionGestionando = Number(id);
-    const item = window.recepcionesCacheDatos.find(i => i.id === Number(id));
-    if (!item) return;
-
-    setVal('gestionEstadoInput', item.estado || 'Pendiente');
-    setVal('gestionComentarioInput', '');
-
-    const timeline = $('timelineSeguimiento');
-    if (timeline) {
-      timeline.innerHTML = `<div style="padding:14px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;line-height:1.6;font-size:13px;white-space:pre-wrap;">${sanitize(item.seguimiento || 'Sin intervenciones registradas.')}</div>`;
-    }
-
-    window.abrirModal('modalGestion');
-  };
-
-  async function guardarSeguimiento() {
-    const btn = $('guardarGestionBtn');
-    try {
-      const comentario = getVal('gestionComentarioInput').trim();
-      const estado = getVal('gestionEstadoInput');
-      if (!comentario || !window.recepcionGestionando) return;
-
-      if (btn) btn.disabled = true;
-
-      const item = window.recepcionesCacheDatos.find(i => i.id === window.recepcionGestionando);
-      const usuario = window.usuarioLogueado?.usuario || 'Compras';
-      const entrada = `\n━━━━━━━━━━━━━━━━━━\n📅 ${new Date().toLocaleString('es-CO')}\n👤 ${usuario}\n🏷️ ${estado}\n📝 ${comentario}\n`;
-
-      if (window.supabaseClient) {
-        await window.supabaseClient
-          .from('recepciones')
-          .update({
-            estado: estado,
-            seguimiento: (item?.seguimiento || '') + entrada
-          })
-          .eq('id', window.recepcionGestionando);
-      }
-
-      window.cerrarModalGestion();
-      await window.renderRecepciones();
-      await window.actualizarKPIsRecepcion();
-      notificar('Seguimiento guardado exitosamente.', 'success');
-
-    } catch (e) {
-      console.error(e);
-    } finally {
-      if (btn) btn.disabled = false;
-    }
-  }
-
-  window.eliminarOperacion = async function (id) {
+  window.eliminarRecepcion = async function (id) {
     if (!confirm('¿Desea eliminar definitivamente este registro y sus soportes?')) return;
-
-    if (window.supabaseClient) {
-      await window.supabaseClient.from('recepciones').delete().eq('id', Number(id));
-    }
-
-    window.recepcionesCacheDatos = window.recepcionesCacheDatos.filter(i => i.id !== Number(id));
+    await window.supabaseClient.from('recepciones').delete().eq('id', Number(id));
     await window.renderRecepciones();
     await window.actualizarKPIsRecepcion();
-    notificar('Registro eliminado.', 'success');
+    notificar('Registro eliminado con éxito.', 'success');
   };
 
   // ==================================================================
@@ -606,30 +549,17 @@
         window.recepcionesCacheDatos = lista;
       }
 
-      let countRec = 0;
-      let countDevProv = 0;
-      let countDevProy = 0;
-      let countNov = 0;
+      let totalFaltantes = 0;
+      let totalNovedades = 0;
 
       lista.forEach(i => {
-        const t = String(i.tipo_recepcion || '');
-        if (t.startsWith('Devolución')) {
-          countDevProv++;
-        } else if (t.startsWith('Reintegro')) {
-          countDevProy++;
-        } else {
-          countRec++;
-        }
-
-        if (Number(i.novedades) > 0 || Number(i.faltantes) > 0 || String(i.estado || '').includes('Gestión')) {
-          countNov++;
-        }
+        totalFaltantes += Number(i.faltantes) || 0;
+        totalNovedades += Number(i.novedades) || 0;
       });
 
-      if ($('kpiRecepciones')) $('kpiRecepciones').innerText = countRec.toLocaleString();
-      if ($('kpiDevolucionesProv')) $('kpiDevolucionesProv').innerText = countDevProv.toLocaleString();
-      if ($('kpiDevolucionesProy')) $('kpiDevolucionesProy').innerText = countDevProy.toLocaleString();
-      if ($('kpiNovedades')) $('kpiNovedades').innerText = countNov.toLocaleString();
+      if ($('kpiRecepciones')) $('kpiRecepciones').innerText = lista.length.toLocaleString();
+      if ($('kpiNovedades')) $('kpiNovedades').innerText = totalNovedades.toLocaleString();
+      if ($('kpiFaltantes')) $('kpiFaltantes').innerText = totalFaltantes.toLocaleString();
 
     } catch (e) {
       console.error(e);
@@ -643,40 +573,26 @@
     window._recepcionListenersInicializados = true;
 
     document.addEventListener('click', function (e) {
-      // Cambio de pestañas
-      const tabBtn = e.target.closest('.rec-tab-btn');
-      if (tabBtn) {
-        const target = tabBtn.dataset.tab;
-        document.querySelectorAll('.rec-tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.rec-tab-content').forEach(c => c.classList.remove('active'));
-
-        tabBtn.classList.add('active');
-        const panel = $(target);
-        if (panel) panel.classList.add('active');
-      }
-
-      if (e.target.closest('#btnAgregarDrive')) {
+      if (e.target.closest('#btnAgregarDriveRecepcion')) {
         agregarDrive();
       }
-      if (e.target.closest('#guardarOperacionBtn')) {
-        guardarOperacion();
+      if (e.target.closest('#guardarRecepcion')) {
+        guardarRecepcion();
       }
       if (e.target.closest('#guardarGestionBtn')) {
-        guardarSeguimiento();
+        guardarGestion();
       }
     });
 
     document.addEventListener('input', function (e) {
-      if (e.target && e.target.id === 'buscadorRecepcion') {
+      if (e.target && (e.target.id === 'cantidadInput' || e.target.id === 'revisadasInput')) {
+        calcularPorcentajeEnVivo();
+      }
+      if (e.target && e.target.id === 'buscarRecepcion') {
         const q = e.target.value.toLowerCase().trim();
-        if (!q) {
-          window.renderRecepciones(window.recepcionesCacheDatos);
-          return;
-        }
         const filtrados = (window.recepcionesCacheDatos || []).filter(i =>
           String(i.proveedor || '').toLowerCase().includes(q) ||
           String(i.material || '').toLowerCase().includes(q) ||
-          String(i.tipo_recepcion || '').toLowerCase().includes(q) ||
           String(i.estado || '').toLowerCase().includes(q)
         );
         window.renderRecepciones(filtrados);
@@ -684,16 +600,17 @@
     });
   }
 
-  // Selector de archivo individual
-  const fileInput = $('archivoInput');
-  if (fileInput) {
-    fileInput.onchange = ev => {
+  // Selector de archivos
+  const fi = $('pdfInput');
+  if (fi) {
+    fi.onchange = ev => {
       agregarArchivos(ev.target.files);
       ev.target.value = '';
     };
   }
 
   // Inicialización de la pantalla
+  renderSoportesTemporales();
   window.renderRecepciones();
   window.actualizarKPIsRecepcion();
 })();
