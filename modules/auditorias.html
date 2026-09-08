@@ -1,7 +1,7 @@
 <div class="module-container audit-suite-container">
 
   <!-- ==================================================== -->
-  <!-- CABECERA PRINCIPAL -->
+  <!-- 1. HEADER HERO DEL MÓDULO                            -->
   <!-- ==================================================== -->
   <header class="module-header audit-hero-header">
     <div class="header-title">
@@ -15,11 +15,11 @@
   </header>
 
   <!-- ==================================================== -->
-  <!-- CUERPO PRINCIPAL: PANEL LATERAL + CONTENIDO DINÁMICO -->
+  <!-- 2. CUERPO PRINCIPAL (SIDEBAR + ÁREA DE TRABAJO)     -->
   <!-- ==================================================== -->
   <div class="audit-workspace-layout">
 
-    <!-- SIDEBAR IZQUIERDO: MENÚ DE AUDITORÍAS -->
+    <!-- MENÚ LATERAL IZQUIERDO: SELECCIÓN DE ÁREA -->
     <aside class="audit-sidebar">
       <div class="audit-sidebar__title">
         <span>ÁREAS DE AUDITORÍA</span>
@@ -77,24 +77,23 @@
       </nav>
     </aside>
 
-    <!-- ÁREA DE FORMULARIO Y REGISTRO -->
+    <!-- ÁREA PRINCIPAL DERECHA -->
     <main class="audit-main-content">
-      
-      <!-- FORMULARIO DE REGISTRO -->
+
+      <!-- TARJETA: FORMULARIO DE REGISTRO -->
       <section class="module-card">
         <div class="table-header">
           <div class="table-header-title">
             <div class="card-icon" id="formCardIcon">📝</div>
             <div>
               <h3 id="formCardTitulo">Registrar Auditoría de Logística</h3>
-              <p class="section-description">Complete los datos obligatorios y los peritajes propios de esta área.</p>
+              <p class="section-description">Complete los campos requeridos y los peritajes específicos del área.</p>
             </div>
           </div>
         </div>
 
         <form id="formAuditoriaFast" autocomplete="off" onsubmit="event.preventDefault();">
-          
-          <!-- 1. CAMPOS GENERALES (TRANSVERSALES) -->
+          <!-- Campos generales compartidos -->
           <div class="form-grid">
             <div class="input-group">
               <label for="responsableInput">Responsable / Auditor</label>
@@ -103,17 +102,17 @@
 
             <div class="input-group">
               <label for="nombreInput">Título de la Auditoría</label>
-              <input id="nombreInput" type="text" placeholder="ej. Auditoría Trimestral" required>
+              <input id="nombreInput" type="text" placeholder="ej. Auditoría General" required>
             </div>
 
             <div class="input-group">
-              <label for="fechaInput">Fecha de Auditoría</label>
+              <label for="fechaInput">Fecha de Ejecución</label>
               <input id="fechaInput" type="date" required>
             </div>
 
             <div class="input-group">
               <label for="procesoInput">Proceso / Referencia</label>
-              <input id="procesoInput" type="text" placeholder="ej. Bodega Principal / Línea 1" required>
+              <input id="procesoInput" type="text" placeholder="ej. Bodega 201 / Tramo Central" required>
             </div>
 
             <div class="input-group">
@@ -124,89 +123,94 @@
                 <option value="Finalizada">Finalizada</option>
               </select>
             </div>
-
-            <div class="input-group">
-              <label for="riesgoSelect">Riesgo Asociado (Matriz)</label>
-              <select id="riesgoSelect">
-                <option value="">Seleccione riesgo de matriz...</option>
-              </select>
-            </div>
           </div>
 
-          <!-- 2. CAMPOS ESPECÍFICOS DINÁMICOS POR ÁREA -->
+          <!-- Inyección dinámica de campos específicos según la categoría -->
           <div class="dynamic-section-title">
-            <span>⚙️ Parámetros Específicos de la Auditoría</span>
+            <span>⚙️ Parámetros Específicos Evaluados</span>
           </div>
           <div id="camposEspecificosContainer" class="form-grid dynamic-form-grid">
-            <!-- Se inyectan automáticamente desde JavaScript según la categoría seleccionada -->
+            <!-- Los inputs se crean automáticamente desde JavaScript -->
           </div>
 
-          <!-- 3. OBSERVACIONES Y HALLAZGOS -->
+          <!-- Observaciones y hallazgos periciales -->
           <div class="input-group textarea-group" style="margin-top: 20px;">
-            <label for="observacionesInput">Observaciones Generales y Hallazgos Encontrados</label>
-            <textarea id="observacionesInput" placeholder="Describa a detalle las no conformidades, hallazgos y evidencias..."></textarea>
+            <label for="observacionesInput">Observaciones y Hallazgos Periciales</label>
+            <textarea id="observacionesInput" placeholder="Detalle evidencias, inconsistencias y no conformidades..."></textarea>
           </div>
         </form>
       </section>
 
-      <!-- ADJUNTOS Y EVIDENCIAS -->
+      <!-- TARJETA: GESTIÓN DE ADJUNTOS -->
       <section class="module-card">
         <div class="table-header">
           <div class="table-header-title">
             <div class="card-icon">📎</div>
             <div>
               <h3>Evidencias y Soportes Documentales</h3>
-              <p class="section-description">Imágenes, PDF, videos o enlaces de Google Drive (Máx. 10 archivos).</p>
+              <p class="section-description">Imágenes, PDF, videos o enlaces de Google Drive (Hasta 10 soportes).</p>
             </div>
           </div>
         </div>
 
         <div class="documentos-container">
           <div id="listaDocumentos">
-            <div class="documento-vacio">📄 Ningún documento adjuntado para esta auditoría.</div>
+            <div class="documento-vacio">📄 Ningún soporte documental adjunto.</div>
           </div>
 
           <div class="button-group">
-            <input id="documentoInput" type="file" accept="image/*,application/pdf,video/*,.heic,.heif,.mov,.m4v,.mkv,.xlsx,.xls,.csv,.doc,.docx,.txt" multiple hidden>
+            <input
+              id="documentoInput"
+              type="file"
+              accept="image/*,application/pdf,video/*,.heic,.heif,.mov,.m4v,.mkv,.xlsx,.xls,.csv,.doc,.docx,.txt"
+              multiple
+              hidden
+            >
             <button id="btnAgregarDocumento" class="btn-secondary" type="button">
               <span class="btn-icon">＋</span> Seleccionar Archivos
             </button>
           </div>
 
           <div class="adjuntos-link-row">
-            <input id="driveLinkAuditoria" type="url" placeholder="Pegue enlace de Google Drive y presione 'Agregar Enlace'">
+            <input id="driveLinkAuditoria" type="url" placeholder="Pegue el enlace público de Google Drive">
             <button id="btnAgregarDriveAuditoria" class="btn-secondary" type="button">Agregar Enlace</button>
           </div>
 
           <div class="adjuntos-panel__header">
-            <p class="adjuntos-ayuda">Formatos permitidos: imágenes, PDF, Office y videos.</p>
+            <p class="adjuntos-ayuda">Formatos: imágenes, PDF, Office y video.</p>
             <span class="adjuntos-contador" id="contadorDocumentosAuditoria">0 / 10</span>
           </div>
         </div>
       </section>
 
-      <!-- BOTÓN GUARDAR -->
+      <!-- BOTÓN DE GUARDADO PRINCIPAL -->
       <div class="guardar-container">
         <button id="guardarAuditoria" class="btn-primary" type="button">
           <span class="btn-icon">💾</span> Guardar Auditoría Completa
         </button>
       </div>
 
-      <!-- HISTORIAL DE AUDITORÍAS -->
+      <!-- TARJETA: HISTORIAL DE REGISTROS -->
       <section class="module-card">
         <div class="table-header">
           <div class="table-header-title">
             <div class="card-icon">📊</div>
             <div>
               <h3 id="tablaHistorialTitulo">Historial de Auditorías (Logística)</h3>
-              <p class="section-description">Registros guardados para esta categoría.</p>
+              <p class="section-description">Registros almacenados bajo esta categoría.</p>
             </div>
           </div>
 
           <div class="table-tools">
             <div class="search-wrapper">
               <span class="search-icon">🔍</span>
-              <input type="text" id="buscarAuditoria" class="input-search" placeholder="Buscar por responsable, nombre..." autocomplete="off">
+              <input
+                type="text"
+                id="buscarAuditoria"
+                class="input-search"
+                placeholder="Buscar por responsable, nombre..."
+                autocomplete="off"
+              >
             </div>
           </div>
         </div>
@@ -223,7 +227,9 @@
                 <th style="text-align:center;">Acciones</th>
               </tr>
             </thead>
-            <tbody id="auditoriasBody"></tbody>
+            <tbody id="auditoriasBody">
+              <!-- Filas generadas por JavaScript -->
+            </tbody>
           </table>
         </div>
       </section>
@@ -231,8 +237,10 @@
     </main>
   </div>
 
-  <!-- MODAL DETALLE DE AUDITORÍA -->
-  <div id="modalDetalleAuditoria" class="modal-documentos" role="dialog" aria-modal="true">
+  <!-- ==================================================== -->
+  <!-- 3. MODAL: DETALLE COMPLETO DE AUDITORÍA              -->
+  <!-- ==================================================== -->
+  <div id="modalDetalleAuditoria" class="modal-documentos" role="dialog" aria-modal="true" style="display:none;">
     <div class="modal-documentos-content modal-detalle">
       <div class="modal-header">
         <h3 id="detalleModalHeader">Detalle de la Auditoría</h3>
@@ -266,7 +274,7 @@
         </div>
       </div>
 
-      <!-- CAMPOS ESPECÍFICOS DETALLE -->
+      <!-- Sección de parámetros específicos evaluados -->
       <div style="padding: 0 28px 18px;">
         <h4 style="font-size: 13px; color: #475569; text-transform: uppercase; margin-bottom: 8px;">Parámetros Evaluados</h4>
         <div id="detalleDatosEspecificos" class="detalle-datos-especificos-grid"></div>
@@ -279,14 +287,62 @@
     </div>
   </div>
 
-  <!-- MODAL DOCUMENTOS ADJUNTOS -->
-  <div id="modalDocumentos" class="modal-documentos" role="dialog" aria-modal="true">
-    <div class="modal-documentos-content">
+  <!-- ==================================================== -->
+  <!-- 4. MODAL: EDITAR AUDITORÍA (ADMIN / JEFE AUDITORÍA)  -->
+  <!-- ==================================================== -->
+  <div id="modalEditarAuditoria" class="modal-documentos" role="dialog" aria-modal="true" style="display:none;">
+    <div class="modal-documentos-content modal-editar" style="max-width: 650px;">
       <div class="modal-header">
-        <h3>Documentos de la Auditoría</h3>
-        <button id="cerrarModalDocumentos" class="btn-cerrar-modal" type="button">✕</button>
+        <h3>Editar Auditoría</h3>
+        <button class="btn-cerrar-modal" type="button" onclick="document.getElementById('modalEditarAuditoria').style.display='none'">✕</button>
       </div>
-      <div id="listaDocumentosModal"></div>
+
+      <input type="hidden" id="editarAuditoriaId">
+
+      <div style="padding: 26px;">
+        <div class="form-grid">
+          <div class="input-group">
+            <label for="editarNombre">Título / Nombre</label>
+            <input id="editarNombre" type="text" required>
+          </div>
+
+          <div class="input-group">
+            <label for="editarResponsable">Responsable</label>
+            <input id="editarResponsable" type="text" required>
+          </div>
+
+          <div class="input-group">
+            <label for="editarFecha">Fecha</label>
+            <input id="editarFecha" type="date" required>
+          </div>
+
+          <div class="input-group">
+            <label for="editarProceso">Proceso / Referencia</label>
+            <input id="editarProceso" type="text" required>
+          </div>
+
+          <div class="input-group">
+            <label for="editarEstado">Estado</label>
+            <select id="editarEstado">
+              <option value="Pendiente">Pendiente</option>
+              <option value="En proceso">En proceso</option>
+              <option value="Finalizada">Finalizada</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="input-group textarea-group" style="margin-top: 18px;">
+          <label for="editarObservaciones">Observaciones / Hallazgos</label>
+          <textarea id="editarObservaciones" rows="4"></textarea>
+        </div>
+
+        <div class="guardar-container" style="margin-top: 22px; display: flex; justify-content: flex-end; gap: 12px;">
+          <button type="button" class="btn-secondary" onclick="document.getElementById('modalEditarAuditoria').style.display='none'">Cancelar</button>
+          <button id="guardarEdicionAuditoria" type="button" class="btn-primary" onclick="window.guardarEdicionAuditoriaModal()">
+            💾 Guardar Cambios
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
