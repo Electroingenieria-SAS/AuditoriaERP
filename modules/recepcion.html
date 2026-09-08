@@ -1,115 +1,283 @@
-<!-- ===================================== -->
-<!-- FORMULARIO DE REGISTRO RÁPIDO         -->
-<!-- ===================================== -->
-<form id="formRecepcionFast" autocomplete="off" onsubmit="event.preventDefault();">
-  <div class="form-grid-panel">
-    <!-- PROVEEDOR -->
-    <div class="input-group">
-      <label for="proveedorInput">PROVEEDOR</label>
-      <input type="text" id="proveedorInput" placeholder="Nombre o Razón Social" required>
+<!-- ======================================================= -->
+<!-- MÓDULO DE RECEPCIÓN — DISEÑO EN 2 COLUMNAS INTEGRADO    -->
+<!-- ======================================================= -->
+<link rel="stylesheet" href="css/recepcion.css">
+
+<div class="module-container rec-module-container">
+
+  <!-- HEADER PRINCIPAL -->
+  <header class="rec-hero-header">
+    <div class="rec-hero-info">
+      <span class="rec-chip-tag">CONTROL LOGÍSTICO // RECEPCIÓN DE MERCANCÍA</span>
+      <h2>📥 Control de Recepciones & Compras</h2>
+      <p>Trazabilidad documental, inspección pericial de existencias y novedades con proveedores.</p>
+    </div>
+  </header>
+
+  <!-- BARRA DE KPIS -->
+  <section class="rec-kpi-grid">
+    <div class="rec-kpi-card">
+      <div class="rec-kpi-head">
+        <span>TOTAL RECEPCIONES</span>
+        <span>📦</span>
+      </div>
+      <h3 id="kpiRecepciones">0</h3>
+      <small>Registros en sistema</small>
     </div>
 
-    <!-- MATERIAL -->
-    <div class="input-group">
-      <label for="materialInput">MATERIAL / REFERENCIA</label>
-      <input type="text" id="materialInput" placeholder="Descripción del artículo" required>
+    <div class="rec-kpi-card">
+      <div class="rec-kpi-head">
+        <span>% REVISADO</span>
+        <span>🔍</span>
+      </div>
+      <h3 id="kpiRevisado">0%</h3>
+      <small>Promedio de verificación</small>
     </div>
 
-    <!-- TIPO DE EMBALAJE -->
-    <div class="input-group">
-      <label for="tipoRecepcionInput">TIPO DE EMBALAJE</label>
-      <select id="tipoRecepcionInput">
-        <option value="Cajas">📦 Cajas</option>
-        <option value="Unidades">🔌 Unidades</option>
-        <option value="Cable Metro">🧵 Cable por Metro</option>
-        <option value="Rollos">🎞️ Rollos</option>
-        <option value="Carretos">🛞 Carretos</option>
-      </select>
+    <div class="rec-kpi-card rec-kpi-warn">
+      <div class="rec-kpi-head">
+        <span>NOVEDADES</span>
+        <span>⚠️</span>
+      </div>
+      <h3 id="kpiNovedades">0</h3>
+      <small>Casos detectados</small>
     </div>
 
-    <!-- CANTIDADES EN 2 COLUMNAS -->
-    <div class="grid-2col-inputs">
-      <div class="input-group">
-        <label for="cantidadInput">CANTIDAD TOTAL</label>
-        <input type="number" id="cantidadInput" placeholder="0" min="1" required>
+    <div class="rec-kpi-card rec-kpi-danger">
+      <div class="rec-kpi-head">
+        <span>FALTANTES</span>
+        <span>❌</span>
+      </div>
+      <h3 id="kpiFaltantes">0</h3>
+      <small>Discrepancias físicas</small>
+    </div>
+  </section>
+
+  <!-- ÁREA PRINCIPAL: 2 COLUMNAS (FORMULARIO IZQUIERDA + TABLA DERECHA) -->
+  <div class="rec-workspace-layout">
+
+    <!-- COLUMNA IZQUIERDA: TERMINAL DE REGISTRO -->
+    <aside class="rec-station-panel">
+      <div class="rec-station-head">
+        <span class="rec-station-icon">📝</span>
+        <div>
+          <h3>Registrar Recepción</h3>
+          <p class="rec-station-subtitle">Complete los campos de la remisión</p>
+        </div>
       </div>
 
-      <div class="input-group">
-        <label for="revisadasInput">CANTIDAD REVISADA</label>
-        <input type="number" id="revisadasInput" placeholder="0" min="0" required>
+      <form id="formRecepcionFast" autocomplete="off" onsubmit="event.preventDefault();">
+        <div class="rec-field">
+          <label for="proveedorInput">PROVEEDOR</label>
+          <input type="text" id="proveedorInput" placeholder="Nombre o Razón Social" required>
+        </div>
+
+        <div class="rec-field">
+          <label for="materialInput">MATERIAL / REFERENCIA</label>
+          <input type="text" id="materialInput" placeholder="Descripción del artículo" required>
+        </div>
+
+        <div class="rec-field">
+          <label for="tipoRecepcionInput">TIPO DE EMBALAJE</label>
+          <select id="tipoRecepcionInput">
+            <option value="Cajas">📦 Cajas</option>
+            <option value="Unidades">🔌 Unidades</option>
+            <option value="Cable Metro">🧵 Cable por Metro</option>
+            <option value="Rollos">🎞️ Rollos</option>
+            <option value="Carretos">🛞 Carretos</option>
+          </select>
+        </div>
+
+        <div class="rec-grid-2col">
+          <div class="rec-field">
+            <label for="cantidadInput">CANTIDAD TOTAL</label>
+            <input type="number" id="cantidadInput" placeholder="0" min="1" required>
+          </div>
+
+          <div class="rec-field">
+            <label for="revisadasInput">CANT. REVISADA</label>
+            <input type="number" id="revisadasInput" placeholder="0" min="0" required>
+          </div>
+        </div>
+
+        <div class="rec-grid-2col">
+          <div class="rec-field">
+            <label for="novedadesInput">NOVEDADES</label>
+            <input type="number" id="novedadesInput" placeholder="0" min="0" value="0">
+          </div>
+
+          <div class="rec-field">
+            <label for="faltantesInput">FALTANTES</label>
+            <input type="number" id="faltantesInput" placeholder="0" min="0" value="0">
+          </div>
+        </div>
+
+        <div class="rec-field">
+          <label for="estadoRecepcionInput">ESTADO RECEPCIÓN</label>
+          <select id="estadoRecepcionInput">
+            <option value="Conforme" selected>🟢 Conforme (Sin Novedad)</option>
+            <option value="Dañado">🔴 Dañado</option>
+            <option value="Faltante">🟠 Faltante</option>
+            <option value="Sobrante">🔵 Sobrante</option>
+            <option value="Cerrado">🔒 Novedad Crítica / Cerrado</option>
+          </select>
+        </div>
+
+        <div class="rec-field">
+          <label for="observacionInput">OBSERVACIONES DE RECEPCIÓN</label>
+          <textarea id="observacionInput" rows="3" placeholder="Detalle número de remisión, novedades o condiciones de entrega..."></textarea>
+        </div>
+
+        <!-- CAJA DE SOPORTES DOCUMENTALES -->
+        <div class="rec-adjuntos-box">
+          <div class="rec-adjuntos-head">
+            <label>SOPORTES Y FOTOGRAFÍAS</label>
+            <span class="rec-contador-chip" id="contadorSoportesRecepcion">0 / 10</span>
+          </div>
+
+          <div class="rec-adjuntos-btns">
+            <input type="file" id="pdfInput" accept="image/*,application/pdf,video/*,.heic,.heif,.mov,.m4v,.mkv" multiple hidden>
+            <button type="button" class="btn-rec-subir" onclick="document.getElementById('pdfInput').click()">
+              ＋ Cargar Archivos
+            </button>
+          </div>
+
+          <div class="drive-inline-box">
+            <input type="url" id="driveLinkRecepcion" placeholder="Pegar enlace de Drive...">
+            <button type="button" id="btnAgregarDriveRecepcion" class="btn-drive-inline">Agregar</button>
+          </div>
+
+          <div id="listaSoportesRecepcion" class="rec-adjuntos-preview">
+            <small class="rec-vacio-txt">Sin archivos anexados.</small>
+          </div>
+        </div>
+
+        <button type="button" id="guardarRecepcion" class="btn-rec-submit">
+          💾 Guardar Recepción
+        </button>
+      </form>
+    </aside>
+
+    <!-- COLUMNA DERECHA: TABLA DE HISTORIAL CON SCROLL INTERNO -->
+    <main class="rec-data-panel">
+      <div class="rec-table-header-row">
+        <div class="rec-table-title">
+          <span class="rec-table-icon">📋</span>
+          <div>
+            <h3>Recepciones Registradas</h3>
+            <p>Historial documental de ingresos e inspecciones periciales.</p>
+          </div>
+        </div>
+
+        <div class="rec-search-box">
+          <input type="text" id="buscarRecepcion" placeholder="Buscar por proveedor, material o estado..." autocomplete="off">
+        </div>
       </div>
-    </div>
 
-    <!-- NOVEDADES Y FALTANTES EN 2 COLUMNAS -->
-    <div class="grid-2col-inputs">
-      <div class="input-group">
-        <label for="novedadesInput">NOVEDADES DETECTADAS</label>
-        <input type="number" id="novedadesInput" placeholder="0" min="0" value="0">
+      <!-- CONTENEDOR CON SCROLL VERTICAL PROPIO -->
+      <div class="rec-table-scroll">
+        <table class="rec-table">
+          <thead>
+            <tr>
+              <th>Proveedor</th>
+              <th>Material</th>
+              <th>Embalaje</th>
+              <th>Cant</th>
+              <th>% Rev</th>
+              <th>Nov</th>
+              <th>Estado Original</th>
+              <th>Estado Gestión</th>
+              <th>Fecha</th>
+              <th style="text-align:center;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="recepcionesBody">
+            <!-- Renderizado dinámico desde JS -->
+          </tbody>
+        </table>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- MODAL GESTIÓN COMPRAS -->
+  <div class="modal-documentos" id="modalGestion" role="dialog" aria-modal="true" style="display:none;">
+    <div class="modal-documentos-content modal-gestion-pro">
+      <div class="modal-header modal-header-gestion">
+        <div class="header-gestion-info">
+          <div class="gestion-icon-badge">🛒</div>
+          <div>
+            <h3>Gestión de Compras & Novedades</h3>
+            <p>Trazabilidad cronológica y resolución de discrepancias con proveedores.</p>
+          </div>
+        </div>
+        <button class="btn-cerrar-modal" type="button" onclick="cerrarModalGestion()" title="Cerrar modal (Esc)">✕</button>
       </div>
 
-      <div class="input-group">
-        <label for="faltantesInput">FALTANTES</label>
-        <input type="number" id="faltantesInput" placeholder="0" min="0" value="0">
+      <div class="modal-gestion-body">
+        <div class="gestion-grid-layout">
+          <div class="gestion-card-action">
+            <div class="card-action-title">
+              <span class="action-bullet"></span>
+              <h4>Nueva Intervención</h4>
+            </div>
+
+            <div class="rec-field">
+              <label for="gestionEstadoInput">ESTADO DE GESTIÓN</label>
+              <select id="gestionEstadoInput">
+                <option value="Pendiente">🟡 Pendiente de Revisión</option>
+                <option value="En Gestión Compras">🛒 En Gestión por Compras</option>
+                <option value="Contactando Proveedor">📞 Contactando Proveedor</option>
+                <option value="Esperando Respuesta">📦 Esperando Reposición / Nota Crédito</option>
+                <option value="Solucionado">🟢 Solucionado / Mercancía Conforme</option>
+                <option value="Cerrado">🔒 Novedad Cerrada Definitiva</option>
+              </select>
+            </div>
+
+            <div class="rec-field" style="margin-top: 14px;">
+              <label for="gestionComentarioInput">REGISTRO DE SEGUIMIENTO / ACUERDOS</label>
+              <textarea id="gestionComentarioInput" rows="4" placeholder="Detalle acuerdos, fechas de reposición, notas crédito o radicados..."></textarea>
+            </div>
+
+            <div class="gestion-action-footer">
+              <button class="btn-primary btn-full-action" id="guardarGestionBtn" type="button">
+                💾 Registrar Seguimiento
+              </button>
+            </div>
+          </div>
+
+          <div class="gestion-card-timeline">
+            <div class="timeline-head-row">
+              <h4>Historial de Intervenciones</h4>
+              <span class="timeline-count-badge" id="timelineCountBadge">0 Registros</span>
+            </div>
+            <div class="timeline-scroll-container" id="timelineSeguimiento"></div>
+          </div>
+        </div>
       </div>
-    </div>
-
-    <!-- ESTADO RECEPCIÓN ORIGINAL RESTAURADO -->
-    <div class="input-group">
-      <label for="estadoRecepcionInput">ESTADO RECEPCIÓN</label>
-      <select id="estadoRecepcionInput">
-        <option value="Conforme" selected>🟢 Conforme (Sin Novedad)</option>
-        <option value="Dañado">🔴 Dañado</option>
-        <option value="Faltante">🟠 Faltante</option>
-        <option value="Sobrante">🔵 Sobrante</option>
-        <option value="Cerrado">🔒 Novedad Crítica</option>
-      </select>
-    </div>
-
-    <!-- OBSERVACIONES -->
-    <div class="input-group textarea-group">
-      <label for="observacionInput">OBSERVACIONES DE RECEPCIÓN</label>
-      <textarea id="observacionInput" placeholder="Detalle cualquier anomalía o condición de entrega..."></textarea>
     </div>
   </div>
 
-  <!-- PANEL DE SOPORTES Y FOTOGRAFÍAS -->
-  <div class="adjuntos-panel-card">
-    <div class="adjuntos-header-row">
-      <label>SOPORTES Y FOTOGRAFÍAS</label>
-      <span class="adjuntos-badge-count" id="contadorSoportesRecepcion">0 / 10</span>
-    </div>
-
-    <!-- BOTÓN DE ARCHIVOS -->
-    <div class="adjuntos-upload-row">
-      <input
-        type="file"
-        id="pdfInput"
-        accept="image/*,application/pdf,video/*,.heic,.heif,.mov,.m4v,.mkv"
-        multiple
-        hidden
-      >
-      <button type="button" class="btn-cargar-archivos" onclick="document.getElementById('pdfInput').click()">
-        ＋ Cargar Archivos
-      </button>
-    </div>
-
-    <!-- FILA DE ENLACE DE DRIVE (CORREGIDA SIN DESBORDE) -->
-    <div class="drive-inline-box">
-      <input type="url" id="driveLinkRecepcion" placeholder="Pegar enlace de Drive...">
-      <button type="button" id="btnAgregarDriveRecepcion" class="btn-drive-inline">
-        Agregar
-      </button>
-    </div>
-
-    <div id="listaSoportesRecepcion" class="adjuntos-preview-list">
-      <small class="adjunto-vacio-txt">Sin archivos anexados.</small>
+  <!-- MODAL OBSERVACIÓN -->
+  <div class="modal-documentos" id="modalObservacion" role="dialog" aria-modal="true" style="display:none;">
+    <div class="modal-documentos-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3>👁️ Observación de Recepción</h3>
+        <button class="btn-cerrar-modal" type="button" onclick="cerrarModalObservacion()">✕</button>
+      </div>
+      <div id="contenidoObservacion" style="padding: 24px; line-height: 1.6; color: #334155; white-space: pre-wrap;"></div>
     </div>
   </div>
 
-  <!-- BOTÓN DE GUARDADO PRINCIPAL -->
-  <div class="guardar-btn-wrap">
-    <button id="guardarRecepcion" class="btn-primary-action" type="button">
-      <span>💾</span> Guardar Recepción
-    </button>
+  <!-- MODAL SOPORTES DOCUMENTALES -->
+  <div class="modal-documentos" id="modalSoportesRecepcion" role="dialog" aria-modal="true" style="display:none;">
+    <div class="modal-documentos-content">
+      <div class="modal-header">
+        <h3>📎 Soportes Documentales & Fotos</h3>
+        <button class="btn-cerrar-modal" type="button" onclick="cerrarModalSoportesRecepcion()">✕</button>
+      </div>
+      <div id="contenidoSoportesRecepcion" style="padding: 20px 30px;"></div>
+    </div>
   </div>
-</form>
+
+</div>
