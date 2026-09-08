@@ -890,3 +890,129 @@ textarea {
     padding: 20px;
   }
 }
+
+/* ==================================================
+   INTERRUPTOR RECEPCIÓN / DEVOLUCIÓN
+================================================== */
+.switch-operacion-wrap {
+  display: flex;
+  background: #F1F5F9;
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.btn-switch-op {
+  border: none;
+  background: transparent;
+  padding: 8px 16px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gris);
+  cursor: pointer;
+  transition: all var(--transicion);
+  font-family: inherit;
+}
+
+.btn-switch-op:hover {
+  color: var(--azul-deep);
+}
+
+.btn-switch-op.active {
+  background: white;
+  color: var(--azul-dark);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.kpi-devolucion h3 {
+  color: #D97706 !important;
+}
+
+/* ==================================================
+   PESTAÑAS DE TABLAS (TABS RECEPCIÓN)
+================================================== */
+.tabs-header-recepcion {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1.5px solid #F1F5F9;
+  margin-bottom: 16px;
+}
+
+.tabs-nav-bar {
+  display: flex;
+  gap: 6px;
+}
+
+.tab-recepcion-btn {
+  background: transparent;
+  border: none;
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gris);
+  cursor: pointer;
+  transition: all var(--transicion);
+}
+
+.tab-recepcion-btn:hover {
+  background: #F1F5F9;
+  color: var(--azul-deep);
+}
+
+.tab-recepcion-btn.active {
+  background: #EFF6FF;
+  color: var(--azul-dark);
+}
+
+.tab-recepcion-content {
+  display: none;
+}
+
+.tab-recepcion-content.active {
+  display: block;
+}
+
+/* ==================================================
+   SCROLL INTERNO DE TABLAS CON HEADER FIJO
+================================================== */
+.table-scroll-container {
+  max-height: 480px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: var(--borde);
+  border-radius: 14px;
+  background: white;
+  position: relative;
+}
+
+.table-scroll-container thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--azul-deep) !important;
+  color: white;
+}
+
+.table-scroll-container::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.table-scroll-container::-webkit-scrollbar-track {
+  background: #F8FAFC;
+}
+
+.table-scroll-container::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 6px;
+}
+
+.table-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
