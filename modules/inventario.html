@@ -1,351 +1,272 @@
 <!-- ======================================================= -->
-<!-- MÓDULO DE INVENTARIO & CONTEO FÍSICO (SPA)              -->
+<!-- MÓDULO DE INVENTARIO & CONTEO FÍSICO (REDESIGN PRO)     -->
 <!-- ======================================================= -->
 <link rel="stylesheet" href="css/inventario.css">
 
-<div class="module-container inv-module-container">
+<div class="inv-container">
 
-  <!-- ===================================== -->
-  <!-- HEADER HERO -->
-  <!-- ===================================== -->
-  <header class="inv-hero-header">
-    <div class="inv-hero-content">
-      <div class="inv-chip">
-        <span class="inv-chip-dot"></span> AUDIT SYSTEM // INVENTORY CONTROL
-      </div>
-      <h2>📦 Gestión & Control de Inventarios</h2>
-      <p>Validación de conteos físicos, trazabilidad pericial de existencias y control de discrepancias.</p>
+  <!-- 1. ENCABEZADO SUPERIOR -->
+  <header class="inv-header">
+    <div class="inv-header-info">
+      <span class="inv-badge-tag">SISTEMA LOGÍSTICO // CONTROL FÍSICO</span>
+      <h2>📦 Gestión y Control de Inventarios</h2>
+      <p>Carga de existencias teóricas, registro pericial de conteo físico y reporte de novedades.</p>
     </div>
-
-    <div class="inv-hero-actions">
-      <button type="button" class="btn-inv-upload" onclick="document.getElementById('excelFile').click()">
-        <span>📂</span> Cargar Archivo Excel
+    <div class="inv-header-btns">
+      <input type="file" id="excelFile" accept=".xlsx,.xls" hidden>
+      <button type="button" class="btn-inv-action btn-upload" onclick="document.getElementById('excelFile').click()">
+        📁 Importar Excel Base
       </button>
-      <input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none;">
+      <button type="button" class="btn-inv-action btn-export" id="exportarExcel">
+        📤 Exportar Resultados
+      </button>
+      <button type="button" class="btn-inv-action btn-clean" id="reiniciarInventario">
+        🗑️ Vaciar Datos
+      </button>
     </div>
   </header>
 
-  <!-- ===================================== -->
-  <!-- KPIS PRINCIPALES -->
-  <!-- ===================================== -->
-  <section class="inv-kpi-grid">
-    <div class="inv-kpi-card">
-      <div class="inv-kpi-head">
-        <span>📦 Total Productos</span>
-      </div>
+  <!-- 2. TARJETAS DE MÉTRICAS (KPIS) -->
+  <section class="inv-metrics-bar">
+    <div class="metric-box">
+      <span class="metric-title">TOTAL ÍTEMS</span>
       <h3 id="kpiTotal">0</h3>
-      <small>Ítems en catálogo</small>
+      <small>Referencias activas</small>
     </div>
-
-    <div class="inv-kpi-card">
-      <div class="inv-kpi-head">
-        <span>🟢 Exactos (OK)</span>
-      </div>
-      <h3 id="kpiExactos" class="kpi-txt-success">0</h3>
+    <div class="metric-box ok-box">
+      <span class="metric-title">CONTEOS EXACTOS</span>
+      <h3 id="kpiExactos">0</h3>
       <small>Sin diferencias</small>
     </div>
-
-    <div class="inv-kpi-card">
-      <div class="inv-kpi-head">
-        <span>🔴 Faltantes</span>
+    <div class="metric-box diff-box">
+      <span class="metric-title">DISCREPANCIAS</span>
+      <div class="metric-sub-counts">
+        <span class="tag-faltante">Faltantes: <strong id="kpiFaltantes">0</strong></span>
+        <span class="tag-sobrante">Sobrantes: <strong id="kpiSobrantes">0</strong></span>
       </div>
-      <h3 id="kpiFaltantes" class="kpi-txt-danger">0</h3>
-      <small>Menor que sistema</small>
     </div>
-
-    <div class="inv-kpi-card">
-      <div class="inv-kpi-head">
-        <span>🟠 Sobrantes</span>
-      </div>
-      <h3 id="kpiSobrantes" class="kpi-txt-warning">0</h3>
-      <small>Mayor que sistema</small>
-    </div>
-
-    <div class="inv-kpi-card inv-kpi-card-highlight">
-      <div class="inv-kpi-head">
-        <span>🎯 Exactitud Global</span>
-      </div>
+    <div class="metric-box highlight-box">
+      <span class="metric-title">EXACTITUD GLOBAL</span>
       <h3 id="kpiExactitud">0.0%</h3>
-      <small>Índice de conformidad</small>
+      <small>Índice de coincidencia</small>
     </div>
   </section>
 
-  <!-- ===================================== -->
-  <!-- REGISTRAR CONTEO & BÚSQUEDA -->
-  <!-- ===================================== -->
-  <section class="inv-card">
-    <div class="inv-card-head">
-      <div class="inv-card-icon">📝</div>
-      <div>
-        <h3>Terminal de Registro de Conteo</h3>
-        <span class="inv-subtitle">Consulte la referencia y registre el conteo físico verificado</span>
-      </div>
-    </div>
+  <!-- 3. ÁREA DE TRABAJO (2 COLUMNAS) -->
+  <div class="inv-workspace">
 
-    <div class="inv-form-grid">
-      <div class="inv-field">
-        <label for="codigoInput">CÓDIGO / REFERENCIA</label>
-        <div class="inv-input-wrap">
-          <input type="text" id="codigoInput" placeholder="Ej. 1002485..." autocomplete="off" autofocus>
-        </div>
-      </div>
-
-      <div class="inv-field">
-        <label for="conteoFisico">CANTIDAD CONTEO FÍSICO</label>
-        <div class="inv-input-wrap">
-          <input type="number" id="conteoFisico" placeholder="0" min="0" step="any">
-        </div>
-      </div>
-    </div>
-
-    <div class="inv-action-toolbar">
-      <button id="buscarBtn" type="button" class="btn-inv-search">
-        🔍 Consultar
-      </button>
-      <button id="guardarConteo" type="button" class="btn-inv-save">
-        💾 Guardar Conteo
-      </button>
-      <button type="button" class="btn-inv-siesa" onclick="window.abrirSiesa()">
-        🏢 Siesa ERP
-      </button>
-      <button type="button" class="btn-inv-novedad" onclick="window.abrirModalNovedad()">
-        ⚠️ Reportar Novedad
-      </button>
-      <button type="button" class="btn-inv-dash" onclick="window.location.href='inventario_graficos.html'">
-        📊 Dashboard Analítico
-      </button>
-    </div>
-  </section>
-
-  <!-- ===================================== -->
-  <!-- INFORMACIÓN DEL PRODUCTO EN FOCO -->
-  <!-- ===================================== -->
-  <section class="inv-card">
-    <div class="inv-card-head">
-      <div class="inv-card-icon">🔍</div>
-      <div>
-        <h3>Ficha Técnica del Producto Activo</h3>
-        <span class="inv-subtitle">Comparativa entre registro teórico y físico</span>
-      </div>
-    </div>
-
-    <div class="inv-product-layout">
-      <div class="inv-product-info-grid">
-        <div class="inv-info-tile">
-          <span>CÓDIGO</span>
-          <strong id="codigoProducto">-</strong>
-        </div>
-        <div class="inv-info-tile">
-          <span>DESCRIPCIÓN / PRODUCTO</span>
-          <strong id="nombreProducto">-</strong>
-        </div>
-        <div class="inv-info-tile">
-          <span>UBICACIÓN / BODEGA</span>
-          <strong id="ubicacionProducto">-</strong>
-        </div>
-        <div class="inv-info-tile">
-          <span>STOCK SISTEMA (TEÓRICO)</span>
-          <strong id="stockProducto">-</strong>
-        </div>
-      </div>
-
-      <div class="inv-diff-box">
-        <span>ESTADO & DIFERENCIA</span>
-        <h2 id="resultadoTexto">-</h2>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================================== -->
-  <!-- HISTORIAL DE CONTEOS SESIÓN -->
-  <!-- ===================================== -->
-  <section class="inv-card">
-    <div class="inv-card-head">
-      <div class="inv-card-icon">🕓</div>
-      <div>
-        <h3>Bitácora de Conteos Recientes</h3>
-        <span class="inv-subtitle">Trazabilidad de verificaciones realizadas en esta sesión</span>
-      </div>
-    </div>
-
-    <div class="inv-table-wrap">
-      <table class="inv-table">
-        <thead>
-          <tr>
-            <th>CÓDIGO</th>
-            <th>PRODUCTO</th>
-            <th>SISTEMA</th>
-            <th>FÍSICO</th>
-            <th>DIFERENCIA</th>
-            <th>ESTADO</th>
-          </tr>
-        </thead>
-        <tbody id="historialBody"></tbody>
-      </table>
-    </div>
-
-    <div class="inv-bottom-actions">
-      <button id="exportarExcel" type="button" class="btn-inv-export">
-        📤 Exportar Excel (.xlsx)
-      </button>
-      <button id="reiniciarInventario" type="button" class="btn-inv-danger">
-        🗑️ Vaciar Inventario Cargado
-      </button>
-    </div>
-  </section>
-
-  <!-- ===================================== -->
-  <!-- NOVEDADES REPORTADAS -->
-  <!-- ===================================== -->
-  <section class="inv-card">
-    <div class="inv-card-head-search">
-      <div class="inv-card-title-group">
-        <div class="inv-card-icon">⚠️</div>
+    <!-- COLUMNA IZQUIERDA: TERMINAL DE CONTEO EN VIVO -->
+    <aside class="inv-station-panel">
+      <div class="panel-card-head">
+        <span class="panel-icon">🎯</span>
         <div>
-          <h3>Novedades & Discrepancias Reportadas</h3>
-          <span class="inv-subtitle">Incidencias registradas en la base de datos</span>
+          <h3>Estación de Conteo</h3>
+          <p>Consulte la referencia y registre existencias</p>
         </div>
       </div>
 
-      <div class="inv-search-wrap">
-        <span class="inv-search-icon">🔍</span>
-        <input type="text" id="buscarNovedad" placeholder="Buscar novedad..." class="inv-search-input">
-      </div>
-    </div>
+      <div class="station-body">
+        <!-- Entrada de Código -->
+        <div class="field-group">
+          <label for="codigoInput">CÓDIGO O REFERENCIA</label>
+          <div class="input-with-action">
+            <input type="text" id="codigoInput" placeholder="Ej. 1002485..." autocomplete="off" autofocus>
+            <button type="button" id="buscarBtn" class="btn-input-search">🔍</button>
+          </div>
+        </div>
 
-    <div class="inv-table-wrap">
-      <table class="inv-table">
-        <thead>
-          <tr>
-            <th>FECHA</th>
-            <th>CÓDIGO</th>
-            <th>MATERIAL</th>
-            <th>TIPO</th>
-            <th>SISTEMA</th>
-            <th>FÍSICO</th>
-            <th>USUARIO</th>
-            <th>OBS.</th>
-            <th>ACCIONES</th>
-          </tr>
-        </thead>
-        <tbody id="novedadesBody"></tbody>
-      </table>
-    </div>
-  </section>
+        <!-- Ficha del Producto Encontrado -->
+        <div class="product-focus-card">
+          <div class="focus-row">
+            <span class="focus-label">DESCRIPCIÓN:</span>
+            <strong id="nombreProducto" class="focus-val">-</strong>
+          </div>
+          <div class="focus-row">
+            <span class="focus-label">UBICACIÓN:</span>
+            <span id="ubicacionProducto" class="focus-badge">-</span>
+          </div>
+          <div class="focus-grid-values">
+            <div class="focus-val-box">
+              <small>STOCK SISTEMA</small>
+              <h4 id="stockProducto">0</h4>
+            </div>
+            <div class="focus-val-box diff-preview">
+              <small>RESULTADO</small>
+              <h4 id="resultadoTexto">-</h4>
+            </div>
+          </div>
+        </div>
 
-  <!-- ===================================== -->
-  <!-- TABLA INVENTARIO CARGADO -->
-  <!-- ===================================== -->
-  <section class="inv-card">
-    <div class="inv-card-head-search">
-      <div class="inv-card-title-group">
-        <div class="inv-card-icon">📋</div>
-        <div>
-          <h3>Inventario Base Cargado</h3>
-          <span class="inv-subtitle">Base de datos de existencias para auditoría</span>
+        <!-- Entrada del Conteo Físico -->
+        <div class="field-group">
+          <label for="conteoFisico">CANTIDAD ENCONTRADA (FÍSICO)</label>
+          <input type="number" id="conteoFisico" placeholder="0" min="0" step="any" class="input-count-highlight">
+        </div>
+
+        <!-- Botones de Acción de la Terminal -->
+        <div class="station-actions">
+          <button type="button" id="guardarConteo" class="btn-primary-station">
+            💾 Guardar Conteo
+          </button>
+          <button type="button" class="btn-secondary-station" onclick="window.abrirModalNovedad()">
+            ⚠️ Reportar Novedad
+          </button>
         </div>
       </div>
+    </aside>
 
-      <div class="inv-search-wrap">
-        <span class="inv-search-icon">🔍</span>
-        <input type="text" id="buscadorInventario" placeholder="Buscar por código, producto o ubicación..." class="inv-search-input">
-      </div>
-    </div>
-
-    <div class="inv-table-wrap">
-      <table class="inv-table">
-        <thead>
-          <tr>
-            <th>CÓDIGO</th>
-            <th>PRODUCTO / REFERENCIA</th>
-            <th>UBICACIÓN</th>
-            <th>STOCK SISTEMA</th>
-            <th style="text-align: right;">ACCIONES</th>
-          </tr>
-        </thead>
-        <tbody id="inventarioBody"></tbody>
-      </table>
-    </div>
-  </section>
-
-</div>
-
-<!-- ===================================== -->
-<!-- MODAL REPORTE DE NOVEDAD -->
-<!-- ===================================== -->
-<div class="modal-novedad" id="modalNovedadInventario">
-  <div class="modal-novedad-content">
-    <div class="modal-novedad-header">
-      <div>
-        <h2>⚠️ Reportar Novedad de Inventario</h2>
-        <p>Documentación de diferencias y averías para auditoría</p>
-      </div>
-      <button class="cerrar-modal-btn" type="button" onclick="window.cerrarModalNovedad()">✕</button>
-    </div>
-
-    <div class="modal-novedad-body">
-      <div class="inv-modal-grid">
-        <div class="inv-field">
-          <label for="novedadCodigo">CÓDIGO</label>
-          <input type="text" id="novedadCodigo" class="inv-modal-input" readonly>
+    <!-- COLUMNA DERECHA: PESTAÑAS Y TABLAS -->
+    <main class="inv-tables-panel">
+      <!-- Barra de Pestañas (Tabs) -->
+      <div class="inv-tabs-header">
+        <div class="tabs-list">
+          <button type="button" class="tab-btn active" data-tab="tab-inventario">
+            📋 Catálogo Base
+          </button>
+          <button type="button" class="tab-btn" data-tab="tab-historial">
+            🕒 Historial de Sesión
+          </button>
+          <button type="button" class="tab-btn" data-tab="tab-novedades">
+            ⚠️ Novedades Registradas
+          </button>
         </div>
 
-        <div class="inv-field">
-          <label for="novedadMaterial">DESCRIPCIÓN</label>
-          <input type="text" id="novedadMaterial" class="inv-modal-input" readonly>
-        </div>
-
-        <div class="inv-field">
-          <label for="novedadSistema">STOCK SISTEMA</label>
-          <input type="number" id="novedadSistema" class="inv-modal-input" oninput="window.calcularDiferenciaNovedad()">
-        </div>
-
-        <div class="inv-field">
-          <label for="novedadFisico">CONTEO FÍSICO</label>
-          <input type="number" id="novedadFisico" class="inv-modal-input" oninput="window.calcularDiferenciaNovedad()">
-        </div>
-
-        <div class="inv-field">
-          <label for="novedadDiferencia">DIFERENCIA</label>
-          <input type="number" id="novedadDiferencia" class="inv-modal-input" readonly>
-        </div>
-
-        <div class="inv-field">
-          <label for="novedadTipo">TIPO DE NOVEDAD</label>
-          <select id="novedadTipo" class="inv-modal-select">
-            <option value="Faltante">Faltante</option>
-            <option value="Sobrante">Sobrante</option>
-            <option value="Dañado">Material Averiado / Dañado</option>
-            <option value="Trocado">Material Trocado / Cruce</option>
-            <option value="Sin Registro">Sin Registro en Sistema</option>
-          </select>
+        <!-- Buscador contextual -->
+        <div class="tab-search-box">
+          <input type="text" id="buscadorInventario" placeholder="Buscar en catálogo..." autocomplete="off">
         </div>
       </div>
 
-      <div class="inv-field" style="margin-top: 14px;">
-        <label for="novedadObservacion">OBSERVACIONES / JUSTIFICACIÓN</label>
-        <textarea id="novedadObservacion" class="inv-modal-textarea" rows="3" placeholder="Detalle la causa o hallazgo del conteo..."></textarea>
+      <!-- PESTAÑA 1: CATÁLOGO DE EXISTENCIAS -->
+      <div class="tab-content active" id="tab-inventario">
+        <div class="table-scroll-wrap">
+          <table class="inv-pro-table">
+            <thead>
+              <tr>
+                <th>CÓDIGO</th>
+                <th>PRODUCTO / REFERENCIA</th>
+                <th>UBICACIÓN</th>
+                <th>STOCK SISTEMA</th>
+                <th style="text-align:center;">ACCIÓN</th>
+              </tr>
+            </thead>
+            <tbody id="inventarioBody">
+              <!-- Render dinámico desde JS -->
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div class="inv-modal-footer">
-        <button type="button" class="btn-inv-ghost" onclick="window.cerrarModalNovedad()">Cancelar</button>
-        <button id="guardarNovedadBtn" type="button" class="btn-inv-save">Guardar Novedad</button>
+      <!-- PESTAÑA 2: HISTORIAL DE SESIÓN -->
+      <div class="tab-content" id="tab-historial">
+        <div class="table-scroll-wrap">
+          <table class="inv-pro-table">
+            <thead>
+              <tr>
+                <th>CÓDIGO</th>
+                <th>PRODUCTO</th>
+                <th>SISTEMA</th>
+                <th>FÍSICO</th>
+                <th>DIFERENCIA</th>
+                <th>ESTADO</th>
+              </tr>
+            </thead>
+            <tbody id="historialBody">
+              <!-- Render dinámico desde JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PESTAÑA 3: NOVEDADES REGISTRADAS -->
+      <div class="tab-content" id="tab-novedades">
+        <div class="table-scroll-wrap">
+          <table class="inv-pro-table">
+            <thead>
+              <tr>
+                <th>FECHA</th>
+                <th>CÓDIGO</th>
+                <th>MATERIAL</th>
+                <th>TIPO</th>
+                <th>SISTEMA</th>
+                <th>FÍSICO</th>
+                <th>OBSERVACIÓN</th>
+                <th style="text-align:center;">ACCIÓN</th>
+              </tr>
+            </thead>
+            <tbody id="novedadesBody">
+              <!-- Render dinámico desde JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- MODAL: REPORTE DE NOVEDADES -->
+  <div class="modal-overlay" id="modalNovedadInventario" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>⚠️ Reportar Novedad de Inventario</h3>
+        <button type="button" class="btn-close-modal" onclick="window.cerrarModalNovedad()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-grid">
+          <div class="field-group">
+            <label for="novedadCodigo">CÓDIGO</label>
+            <input type="text" id="novedadCodigo" readonly>
+          </div>
+          <div class="field-group">
+            <label for="novedadMaterial">DESCRIPCIÓN</label>
+            <input type="text" id="novedadMaterial" readonly>
+          </div>
+          <div class="field-group">
+            <label for="novedadSistema">STOCK SISTEMA</label>
+            <input type="number" id="novedadSistema" oninput="window.calcularDiferenciaNovedad()">
+          </div>
+          <div class="field-group">
+            <label for="novedadFisico">CONTEO FÍSICO</label>
+            <input type="number" id="novedadFisico" oninput="window.calcularDiferenciaNovedad()">
+          </div>
+          <div class="field-group">
+            <label for="novedadDiferencia">DIFERENCIA</label>
+            <input type="number" id="novedadDiferencia" readonly>
+          </div>
+          <div class="field-group">
+            <label for="novedadTipo">TIPO DE NOVEDAD</label>
+            <select id="novedadTipo">
+              <option value="Faltante">Faltante</option>
+              <option value="Sobrante">Sobrante</option>
+              <option value="Dañado">Material Averiado / Dañado</option>
+              <option value="Trocado">Material Trocado / Cruce</option>
+              <option value="Sin Registro">Sin Registro en Sistema</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group" style="margin-top:14px;">
+          <label for="novedadObservacion">OBSERVACIONES / HALLAZGO</label>
+          <textarea id="novedadObservacion" rows="3" placeholder="Detalle la causa o hallazgo..."></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel" onclick="window.cerrarModalNovedad()">Cancelar</button>
+          <button type="button" id="guardarNovedadBtn" class="btn-save">Guardar Novedad</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- ===================================== -->
-<!-- MODAL VISUALIZADOR DE OBSERVACIÓN -->
-<!-- ===================================== -->
-<div class="modal-novedad" id="modalObservacion" style="display:none;">
-  <div class="modal-novedad-content" style="max-width: 500px;">
-    <div class="modal-novedad-header">
-      <h3>Detalle de Observación</h3>
-      <button class="cerrar-modal-btn" type="button" onclick="window.cerrarObservacion()">✕</button>
-    </div>
-    <div class="modal-novedad-body">
-      <p id="textoObservacion" style="font-size: 13.5px; color: #334155; line-height: 1.6; white-space: pre-wrap;"></p>
+  <!-- MODAL: VER OBSERVACIÓN -->
+  <div class="modal-overlay" id="modalObservacion" style="display:none;">
+    <div class="modal-card" style="max-width:480px;">
+      <div class="modal-head">
+        <h3>Detalle de la Observación</h3>
+        <button type="button" class="btn-close-modal" onclick="window.cerrarObservacion()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="textoObservacion" style="font-size:13.5px; color:#334155; line-height:1.6; white-space:pre-wrap;"></p>
+      </div>
     </div>
   </div>
+
 </div>
