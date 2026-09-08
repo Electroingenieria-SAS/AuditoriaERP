@@ -1,18 +1,16 @@
 /**
  * ====================================================================
- * RECEPCION.JS — Módulo Integral de Recepción Logística & Compras Pro
+ * RECEPCION.JS — Módulo de Recepción Logística & Compras Pro
  * ====================================================================
  */
 
 (function () {
   'use strict';
 
-  // 1. Limpieza de intervalos previos
   if (window.refreshRecepcionInterval) {
     clearInterval(window.refreshRecepcionInterval);
   }
 
-  // 2. Estado local y control de envíos
   let soportesSeleccionados = [];
   let guardandoOperacionActiva = false;
   window.recepcionesCacheDatos = [];
@@ -140,14 +138,14 @@
     if (!lista) return;
 
     if (soportesSeleccionados.length === 0) {
-      lista.innerHTML = '<small class="adjunto-vacio-txt">Sin archivos anexados.</small>';
+      lista.innerHTML = '<small class="rec-vacio-txt">Sin archivos anexados.</small>';
       return;
     }
 
     lista.innerHTML = soportesSeleccionados.map((s, idx) => `
       <div class="adjunto-item">
         <span>${s.tipo === 'drive' ? '🔗' : '📄'} ${sanitize(s.nombre)}</span>
-        <button type="button" class="adjunto-btn--eliminar" onclick="window.eliminarSoporteTemp(${idx})">Quitar</button>
+        <button type="button" class="adjunto-btn--eliminar" onclick="window.eliminarSoporteTemp(${idx})">✕</button>
       </div>
     `).join('');
   }
@@ -191,7 +189,7 @@
   }
 
   // ==================================================================
-  // GUARDAR RECEPCIÓN (CAMPOS ORIGINALES Y SIN DOBLE CLIC)
+  // GUARDAR RECEPCIÓN (PROTEGIDO CONTRA DOBLE CLIC)
   // ==================================================================
   async function guardarRecepcion() {
     if (guardandoOperacionActiva) return;
@@ -288,7 +286,7 @@
   }
 
   // ==================================================================
-  // RENDERIZADO DE TABLA DE RECEPCIONES
+  // RENDERIZADO DE TABLA (LISTA TODAS LAS RECEPCIONES SIN OCULTAR NINGUNA)
   // ==================================================================
   window.renderRecepciones = async function (datos = null) {
     const bodyRec = $('recepcionesBody');
@@ -302,7 +300,10 @@
           .select('*')
           .order('id', { ascending: false });
 
-        if (error) return;
+        if (error) {
+          console.error('Error cargando recepciones:', error.message);
+          return;
+        }
         lista = data || [];
         window.recepcionesCacheDatos = lista;
       } else if (!lista) {
@@ -314,27 +315,38 @@
         return;
       }
 
-      bodyRec.innerHTML = lista.map(item => `
-        <tr>
-          <td><strong>${sanitize(item.proveedor)}</strong></td>
-          <td>${sanitize(item.material)}</td>
-          <td>${sanitize(item.tipo_recepcion || '-')}</td>
-          <td>${item.cantidad || 0}</td>
-          <td><strong>${item.porcentaje_revisado || 0}%</strong></td>
-          <td>${item.novedades || 0}</td>
-          <td><span class="estado-pendiente">${sanitize(item.novedad_original || item.estado)}</span></td>
-          <td><span class="estado-revision">${sanitize(item.estado)}</span></td>
-          <td>${new Date(item.created_at).toLocaleDateString('es-CO')}</td>
-          <td style="text-align:center;">
-            <div class="acciones-tabla-mini">
-              <button type="button" class="btn-mini" title="Gestión" onclick="window.validarRecepcion(${item.id})">📋</button>
-              <button type="button" class="btn-mini" title="Ver Observación" onclick="window.verObservacion(${item.id})">👁️</button>
-              <button type="button" class="btn-mini" title="Soportes" onclick="window.verSoportesRecepcion(${item.id})">📎</button>
-              <button type="button" class="btn-mini btn-eliminar-mini" title="Eliminar" onclick="window.eliminarRecepcion(${item.id})">🗑️</button>
-            </div>
-          </td>
-        </tr>
-      `).join('');
+      bodyRec.innerHTML = lista.map(item => {
+        let estadoClass = 'estado-pendiente';
+        const est = String(item.estado || '').toLowerCase();
+        if (est.includes('gestión') || est.includes('gestion') || est.includes('proveedor') || est.includes('esperando')) {
+          estadoClass = 'estado-revision';
+        } else if (est.includes('solucionado') || est.includes('conforme')) {
+          estadoClass = 'estado-revisado';
+        } else if (est.includes('dañ') || est.includes('falt') || est.includes('cerrad')) {
+          estadoClass = 'estado-cerrado';
+        }
+
+        return `
+          <tr>
+            <td><strong>${sanitize(item.proveedor)}</strong></td>
+            <td>${sanitize(item.material)}</td>
+            <td>${sanitize(item.tipo_recepcion || '-')}</td>
+            <td>${item.cantidad || 0}</td>
+            <td><strong>${item.porcentaje_revisado || 0}%</strong></td>
+            <td>${item.novedades || 0}</td>
+            <td><span class="${estadoClass}">${sanitize(item.novedad_original || item.estado)}</span></td>
+            <td><span class="${estadoClass}">${sanitize(item.estado)}</span></td>
+            <td>${new Date(item.created_at).toLocaleDateString('es-CO')}</td>
+            <td style="text-align:center;">
+              <div class="acciones-tabla-mini">
+                <button type="button" class="btn-mini" title="Gestión" onclick="window.validarRecepcion(${item.id})">📋</button>
+                <button type="button" class="btn-mini" title="Ver Observación" onclick="window.verObservacion(${item.id})">👁️</button>
+                <button type="button" class="btn-mini" title="Soportes" onclick="window.verSoportesRecepcion(${item.id})">📎</button>
+                <button type="button" class="btn-mini btn-eliminar-mini" title="Eliminar" onclick="window.eliminarRecepcion(${item.id})">🗑️</button>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
 
     } catch (err) {
       console.error(err);
@@ -342,7 +354,7 @@
   };
 
   // ==================================================================
-  // MODAL GESTIÓN COMPRAS CON TIMELINE PRO RESTAURADO
+  // MODAL GESTIÓN COMPRAS CON TIMELINE PRO
   // ==================================================================
   window.validarRecepcion = async function (id) {
     try {
@@ -474,7 +486,7 @@
       const fecha = new Date().toLocaleString('es-CO');
       const usuario = window.usuarioLogueado?.usuario || 'Compras';
       const entrada = `\n━━━━━━━━━━━━━━━━━━\n📅 ${fecha}\n👤 ${usuario}\n🏷️ Estado: ${estado}\n📝 ${comentario}\n`;
-      const nuevoSeguimiento = (rec.seguimiento || '') + entrada;
+      const nuevoSeguimiento = (rec?.seguimiento || '') + entrada;
 
       await window.supabaseClient
         .from('recepciones')
@@ -517,12 +529,12 @@
     }
 
     if (soportes.length === 0) {
-      cont.innerHTML = '<div class="adjunto-vacio-txt">No hay soportes adjuntos registrados.</div>';
+      cont.innerHTML = '<div class="rec-vacio-txt">No hay soportes adjuntos registrados.</div>';
     } else {
       cont.innerHTML = soportes.map(s => `
         <div class="adjunto-item">
           <span>${sanitize(s.nombre)}</span>
-          <button type="button" class="btn-cargar-archivos" style="width:auto;padding:4px 12px;height:32px;" onclick="window.open('${s.url}', '_blank')">Abrir</button>
+          <button type="button" class="btn-rec-subir" style="width:auto;padding:4px 12px;height:32px;" onclick="window.open('${s.url}', '_blank')">Abrir</button>
         </div>
       `).join('');
     }
@@ -551,13 +563,18 @@
 
       let totalFaltantes = 0;
       let totalNovedades = 0;
+      let totalRevisadoSuma = 0;
 
       lista.forEach(i => {
         totalFaltantes += Number(i.faltantes) || 0;
         totalNovedades += Number(i.novedades) || 0;
+        totalRevisadoSuma += Number(i.porcentaje_revisado) || 0;
       });
 
+      const avgRevisado = lista.length > 0 ? (totalRevisadoSuma / lista.length).toFixed(1) : '0.0';
+
       if ($('kpiRecepciones')) $('kpiRecepciones').innerText = lista.length.toLocaleString();
+      if ($('kpiRevisado')) $('kpiRevisado').innerText = `${avgRevisado}%`;
       if ($('kpiNovedades')) $('kpiNovedades').innerText = totalNovedades.toLocaleString();
       if ($('kpiFaltantes')) $('kpiFaltantes').innerText = totalFaltantes.toLocaleString();
 
@@ -567,7 +584,7 @@
   };
 
   // ==================================================================
-  // ASIGNACIÓN ÚNICA DE LISTENERS (PREVENCIÓN DE DUPLICADOS EN SPA)
+  // ASIGNACIÓN ÚNICA DE LISTENERS
   // ==================================================================
   if (!window._recepcionListenersInicializados) {
     window._recepcionListenersInicializados = true;
@@ -600,7 +617,6 @@
     });
   }
 
-  // Selector de archivos
   const fi = $('pdfInput');
   if (fi) {
     fi.onchange = ev => {
@@ -609,7 +625,7 @@
     };
   }
 
-  // Inicialización de la pantalla
+  // Carga inicial
   renderSoportesTemporales();
   window.renderRecepciones();
   window.actualizarKPIsRecepcion();
