@@ -350,17 +350,17 @@
               <h4>Nuevo Seguimiento</h4>
             </div>
 
-            <div class="rec-field">
-              <label for="gestionEstadoInput">ACTUALIZAR ESTADO</label>
-              <select id="gestionEstadoInput">
-                <option value="Pendiente">🟡 Pendiente de Revisión</option>
-                <option value="En Gestión Compras">🛒 En Gestión con Compras</option>
-                <option value="Contactando Proveedor">📞 Contactando Proveedor</option>
-                <option value="Esperando Respuesta">📦 Esperando Reposición / Ajuste</option>
-                <option value="Solucionado">🟢 Solucionado / Reingreso Aprobado</option>
-                <option value="Cerrado">🔒 Novedad Cerrada Definitiva</option>
-              </select>
-            </div>
+          <!-- ESTADO DE LA OPERACIÓN (OPCIONES ORIGINALES RESTAURADAS) -->
+<div class="rec-field">
+  <label for="estadoOperacionInput">ESTADO DE LA OPERACIÓN</label>
+  <select id="estadoOperacionInput">
+    <option value="Conforme" selected>🟢 Conforme (Sin Novedad)</option>
+    <option value="Dañado">🔴 Dañado</option>
+    <option value="Faltante">🟠 Faltante</option>
+    <option value="Sobrante">🔵 Sobrante</option>
+    <option value="Cerrado">🔒 Cerrado (Novedad Crítica)</option>
+  </select>
+</div>
 
             <div class="rec-field" style="margin-top:14px;">
               <label for="gestionComentarioInput">DETALLE DEL ACUERDO O RADICADO</label>
