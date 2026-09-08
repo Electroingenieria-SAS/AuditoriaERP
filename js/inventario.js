@@ -1,24 +1,23 @@
 /**
  * ====================================================================
- * INVENTARIO.JS — Módulo de Inventario Físico, Conteos & Novedades
- * Versión: 2.8.0 (Protegida contra duplicados y con normalización de Excel)
+ * INVENTARIO.JS — Módulo de Inventario Físico, Conteos & Novedades Pro
+ * Versión: 2.9.0 (Con persistencia compartida, eliminación y modal corregido)
  * ====================================================================
  */
 
 (function () {
   'use strict';
 
-  // Variables de estado del módulo
+  // Variables globales de estado
   window.inventarioCache = [];
   window.historialConteos = [];
   window.productoActual = null;
-  window.novedadEliminarId = null;
 
-  // Banderas de control de procesos asíncronos
+  // Banderas de bloqueo de peticiones en proceso
   let guardandoConteoActivo = false;
   let reinicioEnProgreso = false;
 
-  // Utilidades de DOM
+  // Funciones de ayuda (Helpers)
   function $(id) {
     return document.getElementById(id);
   }
@@ -60,25 +59,34 @@
   }
 
   // ==================================================================
-  // 1. CARGA Y SINCRONIZACIÓN DE INVENTARIO (OFFLINE-FIRST)
+  // 1. CARGA Y SINCRONIZACIÓN DE INVENTARIO Y HISTORIAL
   // ==================================================================
   window.cargarInventarioBD = async function () {
-    // Recuperación inmediata desde caché local para evitar pantalla vacía al cambiar de pestaña
-    const copiaLocal = localStorage.getItem('inventario');
-    if (copiaLocal) {
+    // 1.1 Restaurar de inmediato desde localStorage para evitar pérdida al cambiar de pestaña
+    const copiaInventario = localStorage.getItem('inventario');
+    if (copiaInventario) {
       try {
-        window.inventarioCache = JSON.parse(copiaLocal) || [];
+        window.inventarioCache = JSON.parse(copiaInventario) || [];
         window.renderInventario();
         window.actualizarKPIs();
       } catch (e) {
-        console.warn('Advertencia leyendo respaldo local:', e);
+        console.warn('Aviso leyendo inventario local:', e);
       }
     }
 
-    if (!window.supabaseClient) {
-      return;
+    const copiaHistorial = localStorage.getItem('historial_conteos');
+    if (copiaHistorial) {
+      try {
+        window.historialConteos = JSON.parse(copiaHistorial) || [];
+        window.renderHistorial();
+      } catch (e) {
+        console.warn('Aviso leyendo historial local:', e);
+      }
     }
 
+    if (!window.supabaseClient) return;
+
+    // 1.2 Cargar catálogo desde Supabase
     try {
       const TAMANO_PAGINA = 1000;
       let desde = 0;
@@ -92,7 +100,7 @@
           .range(desde, desde + TAMANO_PAGINA - 1);
 
         if (error) {
-          console.error('Error cargando inventario desde Supabase:', error.message);
+          console.error('Error cargando inventario:', error.message);
           break;
         }
 
@@ -109,14 +117,37 @@
         window.actualizarKPIs();
       }
 
+      // 1.3 Cargar historial compartido desde la base de datos
+      await cargarHistorialCompartidoBD();
       await window.cargarNovedadesBD();
+
     } catch (err) {
       console.error('Excepción al cargar inventario:', err);
     }
   };
 
+  async function cargarHistorialCompartidoBD() {
+    if (!window.supabaseClient) return;
+
+    try {
+      const { data, error } = await window.supabaseClient
+        .from('historial_conteos')
+        .select('*')
+        .order('id', { ascending: false })
+        .limit(100);
+
+      if (!error && data && data.length > 0) {
+        window.historialConteos = data;
+        localStorage.setItem('historial_conteos', JSON.stringify(data));
+        window.renderHistorial();
+      }
+    } catch (e) {
+      console.warn('Aviso cargando historial de base de datos:', e);
+    }
+  }
+
   // ==================================================================
-  // 2. LECTURA Y FILTRADO ESTRICTO DE EXCEL (4 COLUMNAS)
+  // 2. LECTURA Y NORMALIZACIÓN DE EXCEL (4 COLUMNAS CLAVE)
   // ==================================================================
   function normalizarLlave(texto) {
     return String(texto || '')
@@ -139,25 +170,21 @@
       const k = normalizarLlave(llaveOriginal);
       const valLimpio = String(valor ?? '').trim();
 
-      // Detección de Código
       if (!codigo && (k.includes('codigo') || k === 'cod' || k.includes('referencia') || k.includes('ref') || k === 'item' || k === 'id')) {
         codigo = valLimpio;
         continue;
       }
 
-      // Detección de Producto / Referencia
       if (!producto && (k.includes('producto') || k.includes('descripcion') || k.includes('desc') || k.includes('articulo') || k.includes('material') || k.includes('nombre'))) {
         producto = valLimpio;
         continue;
       }
 
-      // Detección de Ubicación
       if (ubicacion === 'Principal' && (k.includes('ubicacion') || k.includes('ubi') || k.includes('bodega') || k.includes('estante') || k.includes('rack') || k.includes('seccion'))) {
         if (valLimpio) ubicacion = valLimpio;
         continue;
       }
 
-      // Detección de Stock Sistema
       if (stockSistema === 0 && (k.includes('stock') || k.includes('sistema') || k.includes('saldo') || k.includes('cantidad') || k.includes('cant') || k.includes('existencia') || k.includes('teorico'))) {
         const parsed = parseFloat(String(valor).replace(/,/g, '.'));
         stockSistema = isNaN(parsed) ? 0 : parsed;
@@ -232,12 +259,8 @@
                   .upsert(chunk, { onConflict: 'codigo' });
               }
             } catch (dbErr) {
-              console.warn('Guardado local completado; sincronización en segundo plano con advertencia:', dbErr);
+              console.warn('Aviso en subida a Supabase:', dbErr);
             }
-          }
-
-          if (typeof window.guardarHistorial === 'function') {
-            await window.guardarHistorial('CARGA_EXCEL', 'INVENTARIO', `Se importaron ${filtrados.length} referencias.`);
           }
 
           notificar(`Se procesaron ${filtrados.length} productos correctamente.`, 'success');
@@ -252,12 +275,12 @@
 
       reader.readAsArrayBuffer(file);
     } catch (e) {
-      console.error('Excepción general en lectura de Excel:', e);
+      console.error(e);
     }
   }
 
   // ==================================================================
-  // 3. CONSULTA Y REGISTRO DE CONTEO FÍSICO
+  // 3. CONSULTA Y REGISTRO DE CONTEO EN VIVO
   // ==================================================================
   function buscarProducto() {
     const cod = getVal('codigoInput').trim().toUpperCase();
@@ -270,37 +293,49 @@
 
     if (!prod) {
       window.productoActual = null;
-      setVal('codigoProducto', '-');
       setVal('nombreProducto', '-');
       setVal('ubicacionProducto', '-');
-      setVal('stockProducto', '-');
+      setVal('stockProducto', '0');
       if ($('resultadoTexto')) $('resultadoTexto').innerText = '-';
-      notificar(`El código "${cod}" no existe en el inventario cargado.`);
+      notificar(`El código "${cod}" no existe en el catálogo cargado.`);
       return;
     }
 
     const stockTeorico = extraerStock(prod);
     window.productoActual = { ...prod, stock_sistema: stockTeorico };
 
-    if ($('codigoProducto')) $('codigoProducto').innerText = prod.codigo;
     if ($('nombreProducto')) $('nombreProducto').innerText = prod.producto || '-';
     if ($('ubicacionProducto')) $('ubicacionProducto').innerText = prod.ubicacion || 'General';
     if ($('stockProducto')) $('stockProducto').innerText = stockTeorico;
 
-    const fisico = getVal('conteoFisico').trim();
-    const resTxt = $('resultadoTexto');
-    if (resTxt) {
-      if (fisico !== '') {
-        const diff = Number(fisico) - stockTeorico;
-        resTxt.innerText = diff > 0 ? `+${diff} (Sobrante)` : diff < 0 ? `${diff} (Faltante)` : '0 (Exacto)';
-        resTxt.style.color = diff === 0 ? '#10b981' : diff < 0 ? '#ef4444' : '#f59e0b';
-      } else {
+    // Si ya tenía un conteo previo, sugerirlo en el input
+    if (prod.conteo_fisico !== null && prod.conteo_fisico !== undefined) {
+      setVal('conteoFisico', prod.conteo_fisico);
+      calcularDiferenciaPreview(prod.conteo_fisico, stockTeorico);
+    } else {
+      setVal('conteoFisico', '');
+      const resTxt = $('resultadoTexto');
+      if (resTxt) {
         resTxt.innerText = 'Esperando conteo...';
         resTxt.style.color = '#64748b';
       }
     }
 
     $('conteoFisico')?.focus();
+  }
+
+  function calcularDiferenciaPreview(fisicoVal, teoricoVal) {
+    const resTxt = $('resultadoTexto');
+    if (!resTxt) return;
+
+    if (fisicoVal !== '') {
+      const diff = Number(fisicoVal) - Number(teoricoVal);
+      resTxt.innerText = diff > 0 ? `+${diff} (Sobrante)` : diff < 0 ? `${diff} (Faltante)` : '0 (Exacto)';
+      resTxt.style.color = diff === 0 ? '#16A34A' : diff < 0 ? '#DC2626' : '#D97706';
+    } else {
+      resTxt.innerText = '-';
+      resTxt.style.color = '#64748b';
+    }
   }
 
   async function registrarConteo() {
@@ -313,7 +348,7 @@
 
     const valorFisico = getVal('conteoFisico').trim();
     if (valorFisico === '') {
-      notificar('Ingrese el valor del conteo físico.');
+      notificar('Ingrese la cantidad verificada en conteo físico.');
       return;
     }
 
@@ -326,6 +361,7 @@
       const stockSistema = extraerStock(window.productoActual);
       const diferencia = conteoFisico - stockSistema;
       const estado = diferencia === 0 ? 'Exacto' : diferencia < 0 ? 'Faltante' : 'Sobrante';
+      const usuarioLog = window.usuarioLogueado?.usuario || 'Sistema';
 
       const itemActualizado = {
         ...window.productoActual,
@@ -333,25 +369,33 @@
         conteo_fisico: conteoFisico,
         diferencia: diferencia,
         estado: estado,
-        usuario: window.usuarioLogueado?.usuario || 'Sistema'
+        usuario: usuarioLog
       };
 
+      // 1. Actualizar el inventario general en caché local
       const idx = window.inventarioCache.findIndex(p => p.codigo === window.productoActual.codigo);
       if (idx > -1) {
         window.inventarioCache[idx] = itemActualizado;
       }
       localStorage.setItem('inventario', JSON.stringify(window.inventarioCache));
 
-      window.historialConteos.unshift({
+      // 2. Registrar en el historial de sesión y guardarlo en localStorage
+      const entradaHistorial = {
         codigo: itemActualizado.codigo,
         producto: itemActualizado.producto,
         sistema: stockSistema,
         fisico: conteoFisico,
         diferencia: diferencia,
         estado: estado,
-        fecha: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
-      });
+        usuario: usuarioLog,
+        created_at: new Date().toISOString()
+      };
 
+      // Evitar duplicados en el historial para el mismo código en esta sesión
+      window.historialConteos = [entradaHistorial, ...window.historialConteos.filter(h => h.codigo !== itemActualizado.codigo)];
+      localStorage.setItem('historial_conteos', JSON.stringify(window.historialConteos));
+
+      // 3. Persistir en Supabase
       if (window.supabaseClient) {
         try {
           await window.supabaseClient
@@ -360,22 +404,30 @@
               conteo_fisico: conteoFisico,
               diferencia: diferencia,
               estado: estado,
-              usuario: window.usuarioLogueado?.usuario || 'Sistema'
+              usuario: usuarioLog
             })
             .eq('codigo', itemActualizado.codigo);
+
+          // Insertar en la tabla compartida de historial
+          await window.supabaseClient
+            .from('historial_conteos')
+            .insert([entradaHistorial]);
         } catch (err) {
-          console.warn('Error al persistir conteo en BD:', err);
+          console.warn('Aviso guardando en BD:', err);
         }
       }
 
-      const resTxt = $('resultadoTexto');
-      if (resTxt) {
-        resTxt.innerText = diferencia > 0 ? `+${diferencia} (Sobrante)` : diferencia < 0 ? `${diferencia} (Faltante)` : '0 (Exacto)';
-        resTxt.style.color = diferencia === 0 ? '#10b981' : diferencia < 0 ? '#ef4444' : '#f59e0b';
-      }
-
+      // 4. Limpieza del terminal y refresco de interfaz
       setVal('codigoInput', '');
       setVal('conteoFisico', '');
+      setVal('nombreProducto', '-');
+      setVal('ubicacionProducto', '-');
+      setVal('stockProducto', '0');
+      if ($('resultadoTexto')) {
+        $('resultadoTexto').innerText = '-';
+        $('resultadoTexto').style.color = '#64748b';
+      }
+
       window.productoActual = null;
       $('codigoInput')?.focus();
 
@@ -383,7 +435,7 @@
       window.renderInventario();
       window.actualizarKPIs();
 
-      notificar(`Conteo registrado para "${itemActualizado.codigo}": ${estado} (${diferencia})`, 'success');
+      notificar(`Conteo verificado para "${itemActualizado.codigo}": ${estado} (${diferencia})`, 'success');
 
     } catch (err) {
       console.error('Error registrando conteo:', err);
@@ -394,9 +446,62 @@
   }
 
   // ==================================================================
-  // 4. REPORTAR NOVEDADES DE INVENTARIO
+  // 4. DESHACER / ELIMINAR CONTEO DE UN PRODUCTO (CORRECCIÓN DE ERRORES)
+  // ==================================================================
+  window.eliminarConteoItem = async function (codigo) {
+    if (!confirm(`¿Desea anular el conteo físico de la referencia "${codigo}" y volver a dejarla pendiente?`)) {
+      return;
+    }
+
+    try {
+      // 1. Revertir en el inventario local
+      const idx = window.inventarioCache.findIndex(p => p.codigo === codigo);
+      if (idx > -1) {
+        window.inventarioCache[idx].conteo_fisico = null;
+        window.inventarioCache[idx].diferencia = null;
+        window.inventarioCache[idx].estado = 'Pendiente';
+      }
+      localStorage.setItem('inventario', JSON.stringify(window.inventarioCache));
+
+      // 2. Remover del historial de sesión
+      window.historialConteos = window.historialConteos.filter(h => h.codigo !== codigo);
+      localStorage.setItem('historial_conteos', JSON.stringify(window.historialConteos));
+
+      // 3. Sincronizar en Supabase
+      if (window.supabaseClient) {
+        await window.supabaseClient
+          .from('inventario')
+          .update({
+            conteo_fisico: null,
+            diferencia: null,
+            estado: 'Pendiente'
+          })
+          .eq('codigo', codigo);
+
+        await window.supabaseClient
+          .from('historial_conteos')
+          .delete()
+          .eq('codigo', codigo);
+      }
+
+      window.renderInventario();
+      window.renderHistorial();
+      window.actualizarKPIs();
+      notificar(`El conteo de "${codigo}" fue anulado correctamente.`, 'success');
+
+    } catch (err) {
+      console.error('Error al revertir conteo:', err);
+      notificar('No se pudo anular el conteo.', 'error');
+    }
+  };
+
+  // ==================================================================
+  // 5. REPORTE DE NOVEDADES (CORREGIDO PARA MOSTRAR MODAL)
   // ==================================================================
   window.abrirModalNovedad = function () {
+    const modal = $('modalNovedadInventario');
+    if (!modal) return;
+
     if (window.productoActual) {
       setVal('novedadCodigo', window.productoActual.codigo);
       setVal('novedadMaterial', window.productoActual.producto);
@@ -410,14 +515,20 @@
       setVal('novedadFisico', '0');
       setVal('novedadDiferencia', '0');
     }
+
     setVal('novedadObservacion', '');
-    const m = $('modalNovedadInventario');
-    if (m) m.classList.add('active');
+    
+    // Mostramos el modal asegurando visibilidad
+    modal.style.display = 'flex';
+    modal.classList.add('active');
   };
 
   window.cerrarModalNovedad = function () {
-    const m = $('modalNovedadInventario');
-    if (m) m.classList.remove('active');
+    const modal = $('modalNovedadInventario');
+    if (modal) {
+      modal.style.display = 'none';
+      modal.classList.remove('active');
+    }
   };
 
   window.calcularDiferenciaNovedad = function () {
@@ -436,7 +547,7 @@
     const observacion = getVal('novedadObservacion').trim();
 
     if (!codigo || !material) {
-      notificar('Complete el código y material para reportar la novedad.');
+      notificar('Debe ingresar el código y la descripción del material.');
       return;
     }
 
@@ -463,7 +574,7 @@
 
     window.cerrarModalNovedad();
     await window.cargarNovedadesBD();
-    notificar('Novedad reportada exitosamente.', 'success');
+    notificar('Novedad de inventario reportada con éxito.', 'success');
   }
 
   window.cargarNovedadesBD = async function () {
@@ -471,7 +582,7 @@
     if (!body) return;
 
     if (!window.supabaseClient) {
-      body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px;">Sin conexión activa</td></tr>`;
+      body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:20px;">Sin conexión activa</td></tr>`;
       return;
     }
 
@@ -482,7 +593,7 @@
         .order('id', { ascending: false });
 
       if (error || !data || data.length === 0) {
-        body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px;">No hay novedades reportadas.</td></tr>`;
+        body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:20px;">No hay novedades reportadas.</td></tr>`;
         return;
       }
 
@@ -494,12 +605,11 @@
           <td><span class="badge-novedad">${sanitize(item.tipo)}</span></td>
           <td>${item.stock_sistema}</td>
           <td>${item.conteo_fisico}</td>
-          <td>${sanitize(item.usuario || 'Sistema')}</td>
           <td>
-            <button type="button" class="btn-mini" onclick="window.verObsNovedad('${encodeURIComponent(item.observacion || '')}')">👁️</button>
+            <button type="button" class="btn-mini-count" onclick="window.verObsNovedad('${encodeURIComponent(item.observacion || '')}')">👁️ Ver</button>
           </td>
-          <td>
-            <button type="button" class="btn-mini btn-eliminar-mini" onclick="window.eliminarNovedad(${item.id})">🗑️</button>
+          <td style="text-align:center;">
+            <button type="button" class="btn-mini-count" style="background:#FEE2E2;color:#DC2626;border-color:#FECACA;" onclick="window.eliminarNovedad(${item.id})">🗑️</button>
           </td>
         </tr>
       `).join('');
@@ -531,7 +641,7 @@
   };
 
   // ==================================================================
-  // 5. RENDERIZADO DE TABLAS Y KPIS
+  // 6. RENDERIZADO DE TABLAS Y KPIS
   // ==================================================================
   window.renderInventario = function (datos = null) {
     const body = $('inventarioBody');
@@ -544,7 +654,7 @@
       return;
     }
 
-    const mostrar = lista.slice(0, 200);
+    const mostrar = lista.slice(0, 300);
 
     body.innerHTML = mostrar.map(item => {
       const stockValor = extraerStock(item);
@@ -552,11 +662,11 @@
       return `
         <tr>
           <td><strong>${sanitize(item.codigo)}</strong></td>
-          <td>${sanitize(item.producto || item.descripcion || item.material || item.codigo)}</td>
-          <td>${sanitize(item.ubicacion || item.bodega || 'Principal')}</td>
+          <td>${sanitize(item.producto || item.codigo)}</td>
+          <td>${sanitize(item.ubicacion || 'Principal')}</td>
           <td><strong>${stockValor}</strong></td>
-          <td style="text-align: right;">
-            <button type="button" class="btn-mini btn-inv-count-row" onclick="window.seleccionarParaConteo('${sanitize(item.codigo)}')" title="Contar este producto">✏️ Contar</button>
+          <td style="text-align: center;">
+            <button type="button" class="btn-mini-count" onclick="window.seleccionarParaConteo('${sanitize(item.codigo)}')">✏️ Contar</button>
           </td>
         </tr>`;
     }).join('');
@@ -565,7 +675,8 @@
   window.seleccionarParaConteo = function (codigo) {
     setVal('codigoInput', codigo);
     buscarProducto();
-    window.scrollTo({ top: 150, behavior: 'smooth' });
+    // Llevar el foco a la estación de conteo
+    $('conteoFisico')?.focus();
   };
 
   window.renderHistorial = function () {
@@ -573,15 +684,14 @@
     if (!body) return;
 
     if (window.historialConteos.length === 0) {
-      body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#94a3b8;">Sin conteos registrados en esta sesión</td></tr>`;
+      body.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8;">Sin conteos verificados en este inventario</td></tr>`;
       return;
     }
 
     body.innerHTML = window.historialConteos.map(item => {
       const diff = Number(item.diferencia) || 0;
       const diffTxt = diff > 0 ? `+${diff}` : `${diff}`;
-      const color = diff === 0 ? '#10b981' : diff < 0 ? '#ef4444' : '#f59e0b';
-      const badgeClass = diff === 0 ? 'estado-revisado' : diff < 0 ? 'estado-cerrado' : 'estado-revision';
+      const color = diff === 0 ? '#16A34A' : diff < 0 ? '#DC2626' : '#D97706';
 
       return `
         <tr>
@@ -590,7 +700,12 @@
           <td>${item.sistema}</td>
           <td><strong>${item.fisico ?? '-'}</strong></td>
           <td><strong style="color:${color}">${diffTxt}</strong></td>
-          <td><span class="${badgeClass}">${item.estado}</span></td>
+          <td><span>${item.estado}</span></td>
+          <td style="text-align:center;">
+            <button type="button" class="btn-mini-count" style="background:#FEE2E2;color:#DC2626;border-color:#FECACA;" title="Anular conteo por error" onclick="window.eliminarConteoItem('${sanitize(item.codigo)}')">
+              🗑️ Deshacer
+            </button>
+          </td>
         </tr>`;
     }).join('');
   };
@@ -621,7 +736,7 @@
   };
 
   // ==================================================================
-  // 6. EXPORTACIÓN Y VACIADO PROTEGIDO
+  // 7. EXPORTACIÓN Y VACIADO GENERAL
   // ==================================================================
   function exportarExcel() {
     if (window.inventarioCache.length === 0) {
@@ -631,20 +746,21 @@
 
     const exportData = window.inventarioCache.map(i => ({
       'Código': i.codigo,
-      'Producto': i.producto || i.descripcion || '',
+      'Producto': i.producto || '',
       'Ubicación': i.ubicacion || 'Principal',
       'Stock Sistema': extraerStock(i),
       'Conteo Físico': i.conteo_fisico ?? '',
       'Diferencia': i.diferencia ?? '',
-      'Estado': i.estado || 'Pendiente'
+      'Estado': i.estado || 'Pendiente',
+      'Auditor': i.usuario || ''
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
-    XLSX.writeFile(wb, `Inventario_Control_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(wb, `Inventario_Pericial_${new Date().toISOString().split('T')[0]}.xlsx`);
 
-    notificar('Archivo Excel exportado con éxito.', 'success');
+    notificar('Resultados exportados a Excel exitosamente.', 'success');
   }
 
   async function reiniciarInventario() {
@@ -655,7 +771,7 @@
       return;
     }
 
-    const confirmado = window.confirm('¿Desea vaciar y reiniciar todos los registros del inventario cargado?');
+    const confirmado = window.confirm('¿Desea vaciar y reiniciar todos los registros del inventario y su historial?');
     if (!confirmado) return;
 
     const btnVaciar = $('reiniciarInventario');
@@ -667,34 +783,26 @@
         btnVaciar.innerText = '⏳ Vaciando...';
       }
 
-      // Borrado por código para evitar inconsistencias con columnas autoincrementales
       if (window.supabaseClient) {
-        const { error } = await window.supabaseClient
-          .from('inventario')
-          .delete()
-          .neq('codigo', '');
-
-        if (error) {
-          console.warn('Advertencia en borrado Supabase:', error.message);
-        }
+        await window.supabaseClient.from('inventario').delete().neq('codigo', '');
+        await window.supabaseClient.from('historial_conteos').delete().neq('codigo', '');
       }
 
       window.inventarioCache = [];
       window.historialConteos = [];
       window.productoActual = null;
       localStorage.removeItem('inventario');
+      localStorage.removeItem('historial_conteos');
 
       setVal('codigoInput', '');
       setVal('conteoFisico', '');
-      setVal('codigoProducto', '-');
       setVal('nombreProducto', '-');
       setVal('ubicacionProducto', '-');
-      setVal('stockProducto', '-');
+      setVal('stockProducto', '0');
 
-      const resTxt = $('resultadoTexto');
-      if (resTxt) {
-        resTxt.innerText = '-';
-        resTxt.style.color = '#64748b';
+      if ($('resultadoTexto')) {
+        $('resultadoTexto').innerText = '-';
+        $('resultadoTexto').style.color = '#64748b';
       }
 
       window.renderInventario();
@@ -704,27 +812,24 @@
       notificar('Inventario e historial vaciados con éxito.', 'success');
 
     } catch (err) {
-      console.error('Error durante el reinicio del inventario:', err);
-      notificar('Ocurrió un error al intentar vaciar el inventario.', 'error');
+      console.error('Error al reiniciar inventario:', err);
+      notificar('Ocurrió un error al vaciar el inventario.', 'error');
     } finally {
       reinicioEnProgreso = false;
       if (btnVaciar) {
         btnVaciar.disabled = false;
-        btnVaciar.innerText = '🗑️ Vaciar Inventario Cargado';
+        btnVaciar.innerText = '🗑️ Vaciar Datos';
       }
     }
   }
 
-  window.abrirSiesa = function () {
-    window.open('https://siesa.com', '_blank');
-  };
-
   // ==================================================================
-  // 7. LISTENERS CON REGISTRO ÚNICO (PREVENCIÓN DE DUPLICADOS EN SPA)
+  // 8. LISTENERS CON REGISTRO ÚNICO (PREVENCIÓN DE DUPLICADOS)
   // ==================================================================
   if (!window._inventarioListenersInicializados) {
     window._inventarioListenersInicializados = true;
 
+    // Buscador en la tabla del catálogo
     document.addEventListener('input', function (e) {
       if (e.target && e.target.id === 'buscadorInventario') {
         const q = e.target.value.toLowerCase().trim();
@@ -734,13 +839,19 @@
         }
         const filtrados = (window.inventarioCache || []).filter(p =>
           String(p.codigo || '').toLowerCase().includes(q) ||
-          String(p.producto || p.descripcion || '').toLowerCase().includes(q) ||
+          String(p.producto || '').toLowerCase().includes(q) ||
           String(p.ubicacion || '').toLowerCase().includes(q)
         );
         window.renderInventario(filtrados);
       }
+
+      // Previsualización dinámica de diferencia mientras se escribe
+      if (e.target && e.target.id === 'conteoFisico' && window.productoActual) {
+        calcularDiferenciaPreview(e.target.value.trim(), window.productoActual.stock_sistema);
+      }
     });
 
+    // Tecla Enter en inputs
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && e.target) {
         if (e.target.id === 'codigoInput') {
@@ -753,6 +864,7 @@
       }
     });
 
+    // Delegación de eventos de clic
     document.addEventListener('click', function (e) {
       if (e.target && e.target.closest('#buscarBtn')) {
         e.preventDefault();
@@ -774,30 +886,27 @@
         e.preventDefault();
         guardarNovedad();
       }
+
+      // Cambio dinámico de pestañas (Tabs)
+      const tabBtn = e.target.closest('.tab-btn');
+      if (tabBtn) {
+        const targetTab = tabBtn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+        tabBtn.classList.add('active');
+        const panel = $(targetTab);
+        if (panel) panel.classList.add('active');
+      }
     });
   }
 
-  // Asignación limpia del selector de archivo Excel
+  // Listener para el input de archivo Excel
   const fileInp = $('excelFile');
   if (fileInp) {
     fileInp.onchange = leerExcel;
   }
 
-  // Inicialización de la vista
+  // Carga inicial
   window.cargarInventarioBD();
-  window.renderHistorial();
 })();
-
-// Manejador de cambio de pestañas (Tabs)
-document.addEventListener('click', function (e) {
-  const tabBtn = e.target.closest('.tab-btn');
-  if (tabBtn) {
-    const targetTab = tabBtn.dataset.tab;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
-    tabBtn.classList.add('active');
-    const panel = document.getElementById(targetTab);
-    if (panel) panel.classList.add('active');
-  }
-});
