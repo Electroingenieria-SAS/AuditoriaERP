@@ -1,25 +1,18 @@
 /**
  * ====================================================================
- * AUDITORIAS.JS — Módulo Integral de Auditorías Periciales (SPA)
+ * AUDITORIAS.JS — Módulo Integral Multi-Área
  * ====================================================================
- * Versión: 2.7.0
  */
 
 (function () {
   'use strict';
-
-  if (window.refreshAuditoriasInterval) {
-    clearInterval(window.refreshAuditoriasInterval);
-  }
 
   const AUDITORIAS_BUCKET = window.ERP_CONFIG?.STORAGE_BUCKETS?.AUDITORIAS || 'auditorias';
   const ADJUNTOS = window.AdjuntosCommon;
 
   let auditoriasCache = [];
   let documentosSeleccionados = [];
-  let documentosEdicionSeleccionados = [];
-  let auditoriaDocumentosModalId = null;
-  window.documentosAuditoriaModalCache = {};
+  let categoriaActiva = 'Logística';
 
   function $(id) {
     return document.getElementById(id);
@@ -47,8 +40,8 @@
   function notificar(mensaje, tipo = 'warning', titulo = 'Auditorías') {
     if (typeof window.mostrarNotificacion === 'function') {
       window.mostrarNotificacion(titulo, mensaje, tipo);
-    } else if (typeof window.notifAlert === 'function') {
-      window.notifAlert(mensaje);
+    } else {
+      alert(mensaje);
     }
   }
 
@@ -67,57 +60,150 @@
     return `${y}-${m}-${d}`;
   }
 
-  // 1. Modales
-  window.abrirModal = function (id) {
-    const modal = $(id);
-    if (modal) {
-      modal.classList.add('active');
-      modal.style.display = 'flex';
-    }
+  // ==================================================================
+  // DEFINICIÓN DE LOS FORMULARIOS ESPECÍFICOS POR ÁREA
+  // ==================================================================
+  const FORMULARIOS_POR_AREA = {
+    'Logística': [
+      { id: 'esp_bodega', label: 'Bodega / Centro de Distribución', type: 'text', placeholder: 'ej. Bodega Principal 1' },
+      { id: 'esp_tipo_conteo', label: 'Tipo de Conteo', type: 'select', options: ['Cíclico', 'General', 'Aleatorio / Sorpresa'] },
+      { id: 'esp_discrepancia', label: 'Nivel de Discrepancia', type: 'select', options: ['Ninguna (100% Exacto)', 'Leve (< 2%)', 'Crítica (> 5%)'] }
+    ],
+    'Contabilidad': [
+      { id: 'esp_cuenta_contable', label: 'Cuenta / Rubro Contable', type: 'text', placeholder: 'ej. 1105 Caja / 2205 Proveedores' },
+      { id: 'esp_conciliacion', label: 'Conciliación Bancaria', type: 'select', options: ['Conciliado', 'Partidas Pendientes', 'Diferencia en Libros'] },
+      { id: 'esp_periodo_fiscal', label: 'Mes / Período Fiscal', type: 'text', placeholder: 'ej. Septiembre 2026' }
+    ],
+    'Compras': [
+      { id: 'esp_orden_compra', label: 'Número de Orden de Compra (OC)', type: 'text', placeholder: 'ej. OC-8849' },
+      { id: 'esp_proveedor', label: 'Nombre del Proveedor', type: 'text', placeholder: 'ej. Distribuidora Eléctrica S.A.S.' },
+      { id: 'esp_cumplimiento_oc', label: 'Cumplimiento de Precios / Tiempos', type: 'select', options: ['Conforme', 'Sobreprecio no autorizado', 'Retraso de entrega'] }
+    ],
+    'Ventas': [
+      { id: 'esp_factura_pedido', label: 'N° Factura o Pedido', type: 'text', placeholder: 'ej. FAC-1029' },
+      { id: 'esp_cliente', label: 'Cliente', type: 'text', placeholder: 'ej. Consorcio Alumbrado del Valle' },
+      { id: 'esp_cartera_estado', label: 'Estado de Cartera / Cobro', type: 'select', options: ['Al día', 'Vencida 30-60 días', 'Incumplimiento de cupo'] }
+    ],
+    'TI': [
+      { id: 'esp_sistema_auditado', label: 'Servidor / Aplicación / Red', type: 'text', placeholder: 'ej. Base de Datos ERP / Red Wi-Fi' },
+      { id: 'esp_backup_status', label: 'Copia de Seguridad (Backup)', type: 'select', options: ['Verificado y Restaurable', 'Incompleto', 'Fallido / No existe'] },
+      { id: 'esp_vulnerabilidad', label: 'Nivel de Vulnerabilidad', type: 'select', options: ['Baja', 'Media', 'Crítica / Requiere Parche Inmediato'] }
+    ],
+    'Mantenimiento': [
+      { id: 'esp_equipo', label: 'Equipo / Vehículo / Maquinaria', type: 'text', placeholder: 'ej. Grúa Canastilla Placa ABC-123' },
+      { id: 'esp_tipo_mtto', label: 'Tipo de Mantenimiento', type: 'select', options: ['Preventivo Periódico', 'Correctivo por Falla', 'Calibración Pericial'] },
+      { id: 'esp_hoja_vida', label: 'Hoja de Vida y Bitácora', type: 'select', options: ['Actualizada al día', 'Desactualizada', 'Sin registro'] }
+    ],
+    'Recursos Humanos': [
+      { id: 'esp_empleado_cargo', label: 'Colaborador / Cargo Evaluado', type: 'text', placeholder: 'ej. Técnico Electricista Liniero' },
+      { id: 'esp_afiliaciones', label: 'Afiliaciones EPS / ARL / Pensión', type: 'select', options: ['Vigente y al día', 'Mora en pago', 'Inconsistencia en nivel de riesgo'] },
+      { id: 'esp_dotacion', label: 'Entrega y Firma de Dotación', type: 'select', options: ['Conforme', 'Pendiente entrega', 'Sin registro firmado'] }
+    ],
+    'Proyectos': [
+      { id: 'esp_nombre_obra', label: 'Nombre de la Obra o Contrato', type: 'text', placeholder: 'ej. Modernización Alumbrado Vía Principal' },
+      { id: 'esp_avance_fisico', label: '% Avance Físico Estimado', type: 'number', placeholder: 'ej. 75' },
+      { id: 'esp_cronograma_status', label: 'Desviación de Cronograma', type: 'select', options: ['A tiempo según programa', 'Retraso justificado', 'Retraso crítico (> 15 días)'] }
+    ],
+    'Alumbrado Público': [
+      { id: 'esp_circuito_tramo', label: 'Circuito / Transformador / Tramo', type: 'text', placeholder: 'ej. Circuito 14 - Carrera 28' },
+      { id: 'esp_tipo_luminaria', label: 'Tecnología de Luminaria', type: 'select', options: ['LED Alta Eficiencia', 'Vapor de Sodio 70W-150W', 'Halogenuro Metálico'] },
+      { id: 'esp_luminarias_revisadas', label: 'Cantidad Luminarias Verificadas', type: 'number', placeholder: 'ej. 45' },
+      { id: 'esp_lux_potencia', label: 'Nivel Lumínico / Medición de Luxes', type: 'text', placeholder: 'ej. 28 Lux promedio (Conforme RETILAP)' }
+    ],
+    'Salud Ocupacional': [
+      { id: 'esp_area_inspeccion', label: 'Puesto de Trabajo / Frente de Obra', type: 'text', placeholder: 'ej. Trabajo en Alturas Poste 45' },
+      { id: 'esp_epp_status', label: 'Uso y Estado de EPP / Arnés', type: 'select', options: ['100% Conforme y Certificado', 'Uso incompleto de EPP', 'Equipo vencido o con desgaste'] },
+      { id: 'esp_permiso_alturas', label: 'Permiso de Trabajo en Alturas / ATS', type: 'select', options: ['Diligenciado y Aprobado', 'Incompleto', 'No generado en sitio'] }
+    ]
   };
 
-  window.cerrarModal = function (id) {
-    const modal = $(id);
-    if (modal) {
-      modal.classList.remove('active');
-      modal.style.display = 'none';
-    }
-  };
+  // ==================================================================
+  // CAMBIO DINÁMICO DE CATEGORÍA
+  // ==================================================================
+  function cambiarCategoria(nuevaCat, elementoBoton) {
+    categoriaActiva = nuevaCat;
 
-  // 2. Renderizado de Soportes en Creación
+    // Actualizar botones del menú lateral
+    document.querySelectorAll('.audit-nav-item').forEach(b => b.classList.remove('active'));
+    if (elementoBoton) elementoBoton.classList.add('active');
+
+    // Actualizar Header
+    const icon = elementoBoton?.dataset.icon || '📋';
+    const desc = elementoBoton?.dataset.desc || '';
+
+    $('headerCategoriaIcono').innerText = icon;
+    $('headerCategoriaTitulo').innerText = `Auditoría de ${nuevaCat}`;
+    $('headerCategoriaDesc').innerText = desc;
+    $('badgeAreaActiva').innerText = `Área: ${nuevaCat}`;
+
+    $('formCardIcon').innerText = icon;
+    $('formCardTitulo').innerText = `Registrar Auditoría de ${nuevaCat}`;
+    $('tablaHistorialTitulo').innerText = `Historial de Auditorías (${nuevaCat})`;
+
+    renderizarCamposDinamicos(nuevaCat);
+    filtrarTablaPorCategoria();
+  }
+
+  function renderizarCamposDinamicos(categoria) {
+    const contenedor = $('camposEspecificosContainer');
+    if (!contenedor) return;
+
+    const campos = FORMULARIOS_POR_AREA[categoria] || [];
+    if (campos.length === 0) {
+      contenedor.innerHTML = '<p style="color:#64748b;font-size:13px;">No se requieren parámetros adicionales para esta área.</p>';
+      return;
+    }
+
+    contenedor.innerHTML = campos.map(campo => {
+      if (campo.type === 'select') {
+        const opciones = campo.options.map(o => `<option value="${sanitize(o)}">${sanitize(o)}</option>`).join('');
+        return `
+          <div class="input-group">
+            <label for="${campo.id}">${campo.label}</label>
+            <select id="${campo.id}">${opciones}</select>
+          </div>
+        `;
+      } else {
+        return `
+          <div class="input-group">
+            <label for="${campo.id}">${campo.label}</label>
+            <input id="${campo.id}" type="${campo.type}" placeholder="${campo.placeholder || ''}">
+          </div>
+        `;
+      }
+    }).join('');
+  }
+
+  function recolectarDatosEspecificos() {
+    const campos = FORMULARIOS_POR_AREA[categoriaActiva] || [];
+    const datos = {};
+    campos.forEach(c => {
+      datos[c.label] = getVal(c.id);
+    });
+    return datos;
+  }
+
+  // ==================================================================
+  // GESTIÓN DE DOCUMENTOS Y SUBIDA A SUPABASE STORAGE
+  // ==================================================================
   function totalDocumentos() {
     return documentosSeleccionados.length;
   }
 
   function agregarDocumentosCreacion(archivos) {
-    const max = ADJUNTOS?.MAX_ADJUNTOS || 10;
+    const max = 10;
     for (const archivo of Array.from(archivos || [])) {
       if (totalDocumentos() >= max) {
         notificar(`Límite de documentos: Máximo ${max}.`);
         break;
       }
-
-      if (ADJUNTOS) {
-        const v = ADJUNTOS.validarArchivo(archivo);
-        if (!v.valido) {
-          notificar(v.mensaje);
-          continue;
-        }
-      }
-
-      const dup = documentosSeleccionados.some(d =>
-        d.tipo === 'archivo' && d.archivo && d.archivo.name === archivo.name && d.archivo.size === archivo.size
-      );
-
-      if (!dup) {
-        documentosSeleccionados.push({
-          tipo: 'archivo',
-          archivo: archivo,
-          nombre: archivo.name,
-          mime: archivo.type || '',
-          tamano: archivo.size
-        });
-      }
+      documentosSeleccionados.push({
+        tipo: 'archivo',
+        archivo: archivo,
+        nombre: archivo.name,
+        mime: archivo.type || '',
+        tamano: archivo.size
+      });
     }
     renderDocumentosCreacion();
   }
@@ -125,27 +211,16 @@
   function agregarDriveCreacion() {
     const input = $('driveLinkAuditoria');
     if (!input) return;
+    const url = input.value.trim();
 
-    const max = ADJUNTOS?.MAX_ADJUNTOS || 10;
-    if (totalDocumentos() >= max) {
-      notificar(`Límite alcanzado: Máximo ${max} documentos.`);
-      return;
-    }
-
-    const url = ADJUNTOS ? ADJUNTOS.normalizarDriveUrl(input.value) : input.value.trim();
     if (!url || !url.startsWith('https://')) {
       notificar('Pegue un enlace válido de Google Drive/Docs.');
       return;
     }
 
-    if (documentosSeleccionados.some(d => d.url === url)) {
-      notificar('El enlace ya está agregado.');
-      return;
-    }
-
     documentosSeleccionados.push({
       tipo: 'drive',
-      nombre: ADJUNTOS ? ADJUNTOS.nombreEnlaceDrive(url, totalDocumentos() + 1) : `Enlace Drive #${totalDocumentos() + 1}`,
+      nombre: `Enlace Drive #${totalDocumentos() + 1}`,
       url: url,
       mime: 'text/uri-list',
       tamano: 0
@@ -158,127 +233,86 @@
   function renderDocumentosCreacion() {
     const lista = $('listaDocumentos');
     const contador = $('contadorDocumentosAuditoria');
-    const max = ADJUNTOS?.MAX_ADJUNTOS || 10;
-
-    if (contador) contador.textContent = `${totalDocumentos()} / ${max}`;
+    if (contador) contador.textContent = `${totalDocumentos()} / 10`;
     if (!lista) return;
 
     if (documentosSeleccionados.length === 0) {
-      lista.innerHTML = '<div class="documento-vacio">📄 Ningún documento agregado.</div>';
+      lista.innerHTML = '<div class="documento-vacio">📄 Ningún documento adjuntado para esta auditoría.</div>';
       return;
     }
 
-    lista.innerHTML = documentosSeleccionados.map((doc, idx) => {
-      const visual = ADJUNTOS ? ADJUNTOS.tipoVisual(doc) : { icono: '📄', etiqueta: 'Archivo' };
-      const meta = doc.tipo === 'drive' ? visual.etiqueta : `${visual.etiqueta} · ${ADJUNTOS ? ADJUNTOS.formatearTamano(doc.tamano) : (doc.tamano + ' B')}`;
-
-      return `
-        <div class="adjunto-item">
-          <div class="adjunto-item__info">
-            <span class="adjunto-item__icono">${visual.icono}</span>
-            <div class="adjunto-item__texto">
-              <span class="adjunto-item__nombre">${sanitize(doc.nombre)}</span>
-              <span class="adjunto-item__meta">${sanitize(meta)}</span>
-            </div>
-          </div>
-          <div class="adjunto-item__acciones">
-            <button type="button" class="adjunto-btn--eliminar" onclick="window.eliminarDocumentoTemporal(${idx})">Quitar</button>
-          </div>
-        </div>`;
-    }).join('');
+    lista.innerHTML = documentosSeleccionados.map((doc, idx) => `
+      <div class="adjunto-item">
+        <div class="adjunto-item__info">
+          <span class="adjunto-item__icono">${doc.tipo === 'drive' ? '🔗' : '📄'}</span>
+          <span class="adjunto-item__nombre">${sanitize(doc.nombre)}</span>
+        </div>
+        <button type="button" class="adjunto-btn--eliminar" onclick="window.eliminarDocTemp(${idx})">Quitar</button>
+      </div>
+    `).join('');
   }
 
-  window.eliminarDocumentoTemporal = function (idx) {
+  window.eliminarDocTemp = function (idx) {
     documentosSeleccionados.splice(Number(idx), 1);
     renderDocumentosCreacion();
   };
 
-  // 3. Subir Documentos a Supabase Storage
-  async function subirDocumentos(lista = documentosSeleccionados) {
+  async function subirArchivos() {
     const guardados = [];
-    const subidas = [];
-
-    for (const doc of lista) {
+    for (const doc of documentosSeleccionados) {
       if (doc.tipo === 'drive') {
-        guardados.push({
-          tipo: 'drive',
-          nombre: doc.nombre,
-          url: doc.url,
-          ruta: '',
-          mime: 'text/uri-list',
-          tamano: 0
-        });
+        guardados.push(doc);
         continue;
       }
 
       const archivo = doc.archivo;
-      if (!archivo) {
-        if (doc.url) guardados.push(doc);
-        continue;
+      const limpio = String(archivo.name || 'doc').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const ruta = `auditorias/${Date.now()}_${limpio}`;
+
+      if (window.supabaseClient) {
+        const { error } = await window.supabaseClient.storage
+          .from(AUDITORIAS_BUCKET)
+          .upload(ruta, archivo, { upsert: false });
+
+        if (error) throw new Error(`Error al subir ${archivo.name}: ${error.message}`);
+        const urlData = window.supabaseClient.storage.from(AUDITORIAS_BUCKET).getPublicUrl(ruta);
+
+        guardados.push({
+          tipo: 'archivo',
+          nombre: archivo.name,
+          url: urlData.data.publicUrl,
+          ruta: ruta
+        });
       }
-
-      const limpio = String(archivo.name || 'documento')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9._-]/g, '_');
-      const idUnico = window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-      const ruta = `auditorias/${idUnico}_${limpio}`;
-
-      const res = await window.supabaseClient.storage
-        .from(AUDITORIAS_BUCKET)
-        .upload(ruta, archivo, { upsert: false, contentType: archivo.type || undefined });
-
-      if (res.error) {
-        if (subidas.length) await window.supabaseClient.storage.from(AUDITORIAS_BUCKET).remove(subidas);
-        throw new Error(`Error al subir ${archivo.name}: ${res.error.message}`);
-      }
-
-      subidas.push(ruta);
-      const urlData = window.supabaseClient.storage.from(AUDITORIAS_BUCKET).getPublicUrl(ruta);
-
-      guardados.push({
-        tipo: 'archivo',
-        nombre: archivo.name,
-        url: urlData.data.publicUrl,
-        ruta: ruta,
-        mime: archivo.type || '',
-        tamano: archivo.size
-      });
     }
-
-    return { guardados, subidas };
+    return guardados;
   }
 
-  // 4. Guardar Nueva Auditoría
+  // ==================================================================
+  // GUARDAR AUDITORÍA EN SUPABASE
+  // ==================================================================
   async function guardarAuditoria() {
     const btn = $('guardarAuditoria');
     try {
-      if (typeof window.tienePermiso === 'function' && !window.tienePermiso('auditorias', 'crear')) {
-        notificar('No cuenta con permisos para registrar auditorías.');
-        return;
-      }
-
-      const tipo = getVal('tipoInput');
       const responsable = getVal('responsableInput').trim();
       const nombre = getVal('nombreInput').trim();
       const fecha = getVal('fechaInput') || obtenerFechaHoy();
       const proceso = getVal('procesoInput').trim();
       const estado = getVal('estadoInput') || 'Pendiente';
       const observaciones = getVal('observacionesInput').trim();
+      const datosEspecificos = recolectarDatosEspecificos();
 
-      if (!tipo || !responsable || !nombre || !proceso) {
-        notificar('Complete los campos obligatorios: Tipo, Responsable, Nombre y Proceso.');
+      if (!responsable || !nombre || !proceso) {
+        notificar('Por favor complete: Responsable, Nombre de la auditoría y Proceso.');
         return;
       }
 
       if (btn) btn.disabled = true;
 
-      let pdfUrl = '';
-      let subidasRutas = [];
+      let pdfUrl = '[]';
       try {
-        const carga = await subirDocumentos();
-        subidasRutas = carga.subidas;
-        pdfUrl = JSON.stringify(carga.guardados);
+        const subidos = await subirArchivos();
+        pdfUrl = JSON.stringify(subidos);
       } catch (err) {
         notificar(err.message, 'error');
         if (btn) btn.disabled = false;
@@ -287,40 +321,33 @@
 
       const usuario = window.usuarioLogueado?.usuario || 'Sistema';
 
-      const { data, error } = await window.supabaseClient
-        .from('auditorias')
-        .insert([{
-          tipo,
-          nombre,
-          responsable,
-          fecha,
-          proceso,
-          estado,
-          observaciones,
-          pdf_url: pdfUrl,
-          usuario,
-          created_at: new Date().toISOString()
-        }])
-        .select()
-        .single();
+      const payload = {
+        categoria: categoriaActiva,
+        tipo: categoriaActiva,
+        nombre,
+        responsable,
+        fecha,
+        proceso,
+        estado,
+        observaciones,
+        datos_especificos: datosEspecificos,
+        pdf_url: pdfUrl,
+        usuario,
+        created_at: new Date().toISOString()
+      };
 
-      if (error) {
-        if (subidasRutas.length) await window.supabaseClient.storage.from(AUDITORIAS_BUCKET).remove(subidasRutas);
-        notificar('Error al guardar auditoría: ' + error.message, 'error');
-        return;
+      if (window.supabaseClient) {
+        const { error } = await window.supabaseClient.from('auditorias').insert([payload]);
+        if (error) {
+          notificar('Error en base de datos: ' + error.message, 'error');
+          if (btn) btn.disabled = false;
+          return;
+        }
       }
 
-      if (typeof window.guardarHistorial === 'function') {
-        await window.guardarHistorial('CREAR', 'AUDITORIAS', `Auditoría creada: ${nombre} (${tipo}) por ${responsable}`);
-      }
-
-      if (typeof window.crearNotificacion === 'function') {
-        window.crearNotificacion(`📋 Auditoría registrada: ${nombre} (${tipo}) - Responsable: ${responsable}`, 'success');
-      }
-
+      notificar(`Auditoría de ${categoriaActiva} guardada exitosamente.`, 'success');
       limpiarFormulario();
-      await window.renderAuditorias();
-      notificar('Auditoría registrada exitosamente.', 'success');
+      await cargarAuditorias();
 
     } catch (e) {
       console.error(e);
@@ -330,338 +357,113 @@
   }
 
   function limpiarFormulario() {
-    setVal('tipoInput', '');
     setVal('responsableInput', '');
     setVal('nombreInput', '');
     setVal('fechaInput', obtenerFechaHoy());
     setVal('procesoInput', '');
     setVal('estadoInput', 'Pendiente');
     setVal('observacionesInput', '');
-
-    const fileInput = $('documentoInput');
-    if (fileInput) fileInput.value = '';
-    const driveInput = $('driveLinkAuditoria');
-    if (driveInput) driveInput.value = '';
-
+    renderizarCamposDinamicos(categoriaActiva);
     documentosSeleccionados = [];
     renderDocumentosCreacion();
   }
 
-  // 5. Renderizado de Auditorías en Tabla
-  window.renderAuditorias = async function (datos = null) {
-    const body = $('auditoriasBody');
-    if (!body) return;
-
+  // ==================================================================
+  // HISTORIAL Y DETALLES
+  // ==================================================================
+  async function cargarAuditorias() {
+    if (!window.supabaseClient) return;
     try {
-      let auditorias = datos;
-      if (!auditorias) {
-        const { data, error } = await window.supabaseClient
-          .from('auditorias')
-          .select('*')
-          .order('id', { ascending: false });
+      const { data, error } = await window.supabaseClient
+        .from('auditorias')
+        .select('*')
+        .order('id', { ascending: false });
 
-        if (error) {
-          console.error(error);
-          return;
-        }
-        auditorias = data || [];
-        auditoriasCache = auditorias;
-      }
-
-      if (auditorias.length === 0) {
-        body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:30px;color:#64748b;">No existen auditorías registradas</td></tr>`;
+      if (error) {
+        console.error(error);
         return;
       }
 
-      const rol = (window.usuarioLogueado?.rol || '').toLowerCase();
-      const puedeEditar = ['admin', 'auditor', 'lider'].includes(rol);
-      const puedeEliminar = ['admin', 'auditor'].includes(rol);
-
-      window.documentosAuditoriaModalCache = {};
-
-      body.innerHTML = auditorias.map(item => {
-        let docs = [];
-        try {
-          docs = JSON.parse(item.pdf_url || '[]');
-        } catch (_) {
-          docs = [];
-        }
-        window.documentosAuditoriaModalCache[item.id] = docs;
-
-        let estadoClass = 'estado-pendiente';
-        if (item.estado === 'En proceso') estadoClass = 'estado-revision';
-        else if (item.estado === 'Finalizada') estadoClass = 'estado-revisado';
-        else if (item.estado === 'Cancelada') estadoClass = 'estado-cerrado';
-
-        return `
-          <tr>
-            <td><strong>${sanitize(item.tipo)}</strong></td>
-            <td>${sanitize(item.nombre)}</td>
-            <td>${sanitize(item.responsable)}</td>
-            <td><span class="${estadoClass}">${sanitize(item.estado)}</span></td>
-            <td>${formatearFecha(item.fecha)}</td>
-            <td>
-              <div class="acciones-tabla-mini">
-                <button type="button" class="btn-mini btn-observacion-mini" title="Ver Detalle" 
-                  onclick="window.verDetalleAuditoria(${item.id})">
-                  👁️
-                </button>
-                <button type="button" class="btn-mini btn-pdf-mini" title="Documentos Adjuntos" 
-                  onclick="window.verDocumentos(${item.id})">
-                  📎
-                </button>
-                ${puedeEditar ? `
-                  <button type="button" class="btn-mini btn-seguimiento-mini" title="Editar Auditoría" 
-                    onclick="window.abrirEditarAuditoria(${item.id})">
-                    ✏️
-                  </button>` : ''}
-                ${puedeEliminar ? `
-                  <button type="button" class="btn-mini btn-eliminar-mini" title="Eliminar" 
-                    onclick="window.eliminarAuditoria(${item.id})">
-                    🗑️
-                  </button>` : ''}
-              </div>
-            </td>
-          </tr>`;
-      }).join('');
-
+      auditoriasCache = data || [];
+      filtrarTablaPorCategoria();
     } catch (err) {
       console.error(err);
     }
-  };
+  }
 
-  // 6. Detalle de Auditoría
-  window.verDetalleAuditoria = function (id) {
-    const item = auditoriasCache.find(a => a.id === Number(id));
-    if (!item) return;
+  function filtrarTablaPorCategoria() {
+    const filtrados = auditoriasCache.filter(a => (a.categoria || a.tipo) === categoriaActiva);
+    renderTabla(filtrados);
+  }
 
-    const setT = (elemId, val) => { const el = $(elemId); if (el) el.textContent = val || '-'; };
-    setT('detalleTipo', item.tipo);
-    setT('detalleEstado', item.estado);
-    setT('detalleNombre', item.nombre);
-    setT('detalleResponsable', item.responsable);
-    setT('detalleProceso', item.proceso);
-    setT('detalleFecha', formatearFecha(item.fecha));
+  function renderTabla(lista) {
+    const body = $('auditoriasBody');
+    if (!body) return;
 
-    const obsEl = $('detalleObservaciones');
-    if (obsEl) obsEl.textContent = item.observaciones || 'Sin observaciones registradas.';
-
-    window.abrirModal('modalDetalleAuditoria');
-  };
-
-  // 7. Modal Documentos
-  window.verDocumentos = function (id) {
-    auditoriaDocumentosModalId = Number(id);
-    const docs = window.documentosAuditoriaModalCache[id] || [];
-    const lista = $('listaDocumentosModal');
-    const badge = $('contadorDocumentosModal');
-    const max = ADJUNTOS?.MAX_ADJUNTOS || 10;
-
-    if (badge) badge.textContent = `${docs.length} / ${max}`;
-    if (!lista) return;
-
-    if (docs.length === 0) {
-      lista.innerHTML = '<div class="documento-vacio">No hay documentos registrados para esta auditoría.</div>';
-    } else {
-      lista.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px;padding:0 30px;">${docs.map((doc, idx) => `
-        <div class="adjunto-item">
-          <span>${sanitize(doc.nombre)}</span>
-          <div style="display:flex;gap:6px;">
-            <button type="button" class="adjunto-btn--abrir" onclick="window.open('${doc.url}', '_blank')">Abrir</button>
-            <button type="button" class="adjunto-btn--eliminar" onclick="window.eliminarDocumentoAuditoria(${idx})">Eliminar</button>
-          </div>
-        </div>
-      `).join('')}</div>`;
-    }
-
-    window.abrirModal('modalDocumentos');
-  };
-
-  window.eliminarDocumentoAuditoria = async function (index) {
-    const id = auditoriaDocumentosModalId;
-    const docs = window.documentosAuditoriaModalCache[id] || [];
-
-    if (!confirm('¿Desea eliminar este documento adjunto?')) return;
-
-    const restantes = docs.filter((_, i) => i !== Number(index));
-    const eliminado = docs[Number(index)];
-
-    await window.supabaseClient
-      .from('auditorias')
-      .update({ pdf_url: JSON.stringify(restantes) })
-      .eq('id', id);
-
-    if (eliminado?.ruta) {
-      await window.supabaseClient.storage.from(AUDITORIAS_BUCKET).remove([eliminado.ruta]);
-    }
-
-    await window.renderAuditorias();
-    window.verDocumentos(id);
-  };
-
-  // 8. Edición de Auditoría
-  window.abrirEditarAuditoria = function (id) {
-    const item = auditoriasCache.find(a => a.id === Number(id));
-    if (!item) return;
-
-    setVal('editarAuditoriaId', item.id);
-    setVal('editarTipo', item.tipo);
-    setVal('editarResponsable', item.responsable);
-    setVal('editarNombre', item.nombre);
-    setVal('editarFecha', item.fecha);
-    setVal('editarProceso', item.proceso);
-    setVal('editarEstado', item.estado);
-    setVal('editarObservaciones', item.observaciones || '');
-
-    documentosEdicionSeleccionados = [];
-    renderDocumentosEdicion();
-
-    window.abrirModal('modalEditarAuditoria');
-  };
-
-  function renderDocumentosEdicion() {
-    const lista = $('listaDocumentosEdicion');
-    const badge = $('contadorDocumentosEdicion');
-    if (badge) badge.textContent = `${documentosEdicionSeleccionados.length} nuevos`;
-    if (!lista) return;
-
-    if (documentosEdicionSeleccionados.length === 0) {
-      lista.innerHTML = '<div class="adjunto-vacio">No hay soportes nuevos seleccionados.</div>';
+    if (lista.length === 0) {
+      body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:26px;color:#64748B;">No hay auditorías registradas para ${categoriaActiva}.</td></tr>`;
       return;
     }
 
-    lista.innerHTML = documentosEdicionSeleccionados.map((doc, idx) => `
-      <div class="adjunto-item">
-        <span>${sanitize(doc.nombre)}</span>
-        <button type="button" class="adjunto-btn--eliminar" onclick="window.eliminarDocumentoEdicionTemporal(${idx})">Quitar</button>
-      </div>
+    body.innerHTML = lista.map(item => `
+      <tr>
+        <td><strong>${sanitize(item.categoria || item.tipo)}</strong></td>
+        <td>${sanitize(item.nombre)}</td>
+        <td>${sanitize(item.responsable)}</td>
+        <td><span class="estado-pendiente">${sanitize(item.estado)}</span></td>
+        <td>${formatearFecha(item.fecha)}</td>
+        <td style="text-align:center;">
+          <button type="button" class="btn-mini" onclick="window.verDetalle(${item.id})">👁️ Ver</button>
+        </td>
+      </tr>
     `).join('');
   }
 
-  window.eliminarDocumentoEdicionTemporal = function (idx) {
-    documentosEdicionSeleccionados.splice(Number(idx), 1);
-    renderDocumentosEdicion();
+  window.verDetalle = function (id) {
+    const a = auditoriasCache.find(x => x.id === Number(id));
+    if (!a) return;
+
+    $('detalleCategoria').innerText = a.categoria || a.tipo;
+    $('detalleEstado').innerText = a.estado;
+    $('detalleNombre').innerText = a.nombre;
+    $('detalleResponsable').innerText = a.responsable;
+    $('detalleProceso').innerText = a.proceso;
+    $('detalleFecha').innerText = formatearFecha(a.fecha);
+    $('detalleObservaciones').innerText = a.observaciones || 'Sin observaciones.';
+
+    const contenedorEsp = $('detalleDatosEspecificos');
+    const datos = a.datos_especificos || {};
+    const keys = Object.keys(datos);
+
+    if (keys.length === 0) {
+      contenedorEsp.innerHTML = '<span style="color:#94a3b8;font-size:12px;">Sin parámetros especiales.</span>';
+    } else {
+      contenedorEsp.innerHTML = keys.map(k => `
+        <div class="detalle-dato-item">
+          <small>${sanitize(k)}</small>
+          <strong>${sanitize(datos[k] || '-')}</strong>
+        </div>
+      `).join('');
+    }
+
+    $('modalDetalleAuditoria').style.display = 'flex';
   };
 
-  async function guardarEdicion() {
-    const btn = $('guardarEdicionAuditoria');
-    try {
-      const id = Number(getVal('editarAuditoriaId'));
-      if (!id) return;
-
-      const item = auditoriasCache.find(a => a.id === id);
-      let docsExistentes = [];
-      try { docsExistentes = JSON.parse(item?.pdf_url || '[]'); } catch (_) { docsExistentes = []; }
-
-      if (btn) btn.disabled = true;
-
-      // Subir nuevos adjuntos si se seleccionaron
-      if (documentosEdicionSeleccionados.length > 0) {
-        const carga = await subirDocumentos(documentosEdicionSeleccionados);
-        docsExistentes = docsExistentes.concat(carga.guardados);
-      }
-
-      const tipo = getVal('editarTipo');
-      const responsable = getVal('editarResponsable').trim();
-      const nombre = getVal('editarNombre').trim();
-      const fecha = getVal('editarFecha');
-      const proceso = getVal('editarProceso').trim();
-      const estado = getVal('editarEstado');
-      const observaciones = getVal('editarObservaciones').trim();
-
-      const { error } = await window.supabaseClient
-        .from('auditorias')
-        .update({
-          tipo,
-          responsable,
-          nombre,
-          fecha,
-          proceso,
-          estado,
-          observaciones,
-          pdf_url: JSON.stringify(docsExistentes)
-        })
-        .eq('id', id);
-
-      if (error) {
-        notificar('Error al actualizar auditoría: ' + error.message, 'error');
-        return;
-      }
-
-      if (typeof window.guardarHistorial === 'function') {
-        await window.guardarHistorial('EDITAR', 'AUDITORIAS', `Auditoría #${id} modificada: ${nombre} (${estado})`);
-      }
-
-      window.cerrarModal('modalEditarAuditoria');
-      await window.renderAuditorias();
-      notificar('Auditoría actualizada correctamente.', 'success');
-
-    } catch (e) {
-      console.error(e);
-    } finally {
-      if (btn) btn.disabled = false;
-    }
-  }
-
-  // 9. Eliminar Auditoría
-  window.eliminarAuditoria = async function (id) {
-    if (typeof window.tienePermiso === 'function' && !window.tienePermiso('auditorias', 'eliminar')) {
-      notificar('Acceso denegado: No cuenta con permisos para eliminar auditorías.');
-      return;
-    }
-
-    if (!confirm('¿Desea eliminar definitivamente esta auditoría y sus documentos?')) return;
-
-    const docs = window.documentosAuditoriaModalCache[Number(id)] || [];
-    const rutas = docs.filter(d => d.ruta).map(d => d.ruta);
-
-    await window.supabaseClient.from('auditorias').delete().eq('id', Number(id));
-    if (rutas.length) {
-      await window.supabaseClient.storage.from(AUDITORIAS_BUCKET).remove(rutas);
-    }
-
-    if (typeof window.guardarHistorial === 'function') {
-      await window.guardarHistorial('ELIMINAR', 'AUDITORIAS', `Se eliminó la auditoría #${id}`);
-    }
-
-    await window.renderAuditorias();
-    notificar('Auditoría eliminada del sistema.', 'success');
-  };
-
-  // 10. Listeners y Atajos
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') {
-      window.cerrarModal('modalDetalleAuditoria');
-      window.cerrarModal('modalDocumentos');
-      window.cerrarModal('modalEditarAuditoria');
-    }
-  });
-
-  document.addEventListener('input', function (e) {
-    if (e.target && e.target.id === 'buscarAuditoria') {
-      const q = e.target.value.toLowerCase().trim();
-      if (!q) {
-        window.renderAuditorias(auditoriasCache);
-        return;
-      }
-      const filtrados = auditoriasCache.filter(a =>
-        String(a.nombre || '').toLowerCase().includes(q) ||
-        String(a.responsable || '').toLowerCase().includes(q) ||
-        String(a.proceso || '').toLowerCase().includes(q) ||
-        String(a.tipo || '').toLowerCase().includes(q) ||
-        String(a.estado || '').toLowerCase().includes(q)
-      );
-      window.renderAuditorias(filtrados);
-    }
-  });
-
+  // ==================================================================
+  // LISTENERS
+  // ==================================================================
   document.addEventListener('click', function (e) {
-    if (e.target.closest('#cerrarDetalleAuditoria')) window.cerrarModal('modalDetalleAuditoria');
-    if (e.target.closest('#cerrarModalDocumentos')) window.cerrarModal('modalDocumentos');
-    if (e.target.closest('#cerrarEditarAuditoria')) window.cerrarModal('modalEditarAuditoria');
+    // Menú lateral
+    const navItem = e.target.closest('.audit-nav-item');
+    if (navItem) {
+      cambiarCategoria(navItem.dataset.cat, navItem);
+    }
+
+    if (e.target.closest('#cerrarDetalleAuditoria')) {
+      $('modalDetalleAuditoria').style.display = 'none';
+    }
 
     if (e.target.closest('#btnAgregarDocumento')) {
-      e.preventDefault();
       const fi = $('documentoInput');
       if (fi) {
         fi.onchange = ev => {
@@ -673,23 +475,16 @@
     }
 
     if (e.target.closest('#btnAgregarDriveAuditoria')) {
-      e.preventDefault();
       agregarDriveCreacion();
     }
 
     if (e.target.closest('#guardarAuditoria')) {
-      e.preventDefault();
       guardarAuditoria();
-    }
-
-    if (e.target.closest('#guardarEdicionAuditoria')) {
-      e.preventDefault();
-      guardarEdicion();
     }
   });
 
   // Inicialización
   setVal('fechaInput', obtenerFechaHoy());
-  renderDocumentosCreacion();
-  window.renderAuditorias();
+  renderizarCamposDinamicos('Logística');
+  cargarAuditorias();
 })();
