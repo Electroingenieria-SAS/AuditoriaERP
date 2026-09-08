@@ -1,6 +1,6 @@
 /**
  * ====================================================================
- * AUDITORIAS.JS — Módulo Integral Multi-Área
+ * AUDITORIAS.JS — Módulo Integral Multi-Área (Con Edición y Eliminación RBAC)
  * ====================================================================
  */
 
@@ -131,14 +131,14 @@
     const icon = elementoBoton?.dataset.icon || '📋';
     const desc = elementoBoton?.dataset.desc || '';
 
-    $('headerCategoriaIcono').innerText = icon;
-    $('headerCategoriaTitulo').innerText = `Auditoría de ${nuevaCat}`;
-    $('headerCategoriaDesc').innerText = desc;
-    $('badgeAreaActiva').innerText = `Área: ${nuevaCat}`;
+    if ($('headerCategoriaIcono')) $('headerCategoriaIcono').innerText = icon;
+    if ($('headerCategoriaTitulo')) $('headerCategoriaTitulo').innerText = `Auditoría de ${nuevaCat}`;
+    if ($('headerCategoriaDesc')) $('headerCategoriaDesc').innerText = desc;
+    if ($('badgeAreaActiva')) $('badgeAreaActiva').innerText = `Área: ${nuevaCat}`;
 
-    $('formCardIcon').innerText = icon;
-    $('formCardTitulo').innerText = `Registrar Auditoría de ${nuevaCat}`;
-    $('tablaHistorialTitulo').innerText = `Historial de Auditorías (${nuevaCat})`;
+    if ($('formCardIcon')) $('formCardIcon').innerText = icon;
+    if ($('formCardTitulo')) $('formCardTitulo').innerText = `Registrar Auditoría de ${nuevaCat}`;
+    if ($('tablaHistorialTitulo')) $('tablaHistorialTitulo').innerText = `Historial de Auditorías (${nuevaCat})`;
 
     renderizarCamposDinamicos(nuevaCat);
     filtrarTablaPorCategoria();
@@ -184,7 +184,7 @@
   }
 
   // ==================================================================
-  // GESTIÓN DE DOCUMENTOS Y SUBIDA A SUPABASE STORAGE
+  // GESTIÓN DE DOCUMENTOS Y SUBIDA A STORAGE
   // ==================================================================
   function totalDocumentos() {
     return documentosSeleccionados.length;
@@ -380,7 +380,7 @@
         .order('id', { ascending: false });
 
       if (error) {
-        console.error(error);
+        console.error('Error cargando auditorías:', error.message);
         return;
       }
 
@@ -396,6 +396,9 @@
     renderTabla(filtrados);
   }
 
+  // ==================================================================
+  // RENDERIZADO DE LA TABLA (CON CONTROL DE ROLES RBAC)
+  // ==================================================================
   function renderTabla(lista) {
     const body = $('auditoriasBody');
     if (!body) return;
@@ -405,20 +408,57 @@
       return;
     }
 
-    body.innerHTML = lista.map(item => `
-      <tr>
-        <td><strong>${sanitize(item.categoria || item.tipo)}</strong></td>
-        <td>${sanitize(item.nombre)}</td>
-        <td>${sanitize(item.responsable)}</td>
-        <td><span class="estado-pendiente">${sanitize(item.estado)}</span></td>
-        <td>${formatearFecha(item.fecha)}</td>
-        <td style="text-align:center;">
-          <button type="button" class="btn-mini" onclick="window.verDetalle(${item.id})">👁️ Ver</button>
-        </td>
-      </tr>
-    `).join('');
+    // 1. Normalizar el rol del usuario conectado
+    const rolActual = String(window.usuarioLogueado?.rol || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    // 2. Comprobar permisos para Admin y Jefe de Auditoría
+    const tienePermisoGestion = [
+      'admin',
+      'administrador',
+      'jefe auditoria',
+      'jefe_auditoria',
+      'jefe de auditoria',
+      'auditor'
+    ].includes(rolActual);
+
+    body.innerHTML = lista.map(item => {
+      let estadoClass = 'estado-pendiente';
+      if (item.estado === 'En proceso') estadoClass = 'estado-proceso';
+      if (item.estado === 'Finalizada') estadoClass = 'estado-finalizada';
+
+      return `
+        <tr>
+          <td><strong>${sanitize(item.categoria || item.tipo)}</strong></td>
+          <td>${sanitize(item.nombre)}</td>
+          <td>${sanitize(item.responsable)}</td>
+          <td><span class="${estadoClass}">${sanitize(item.estado)}</span></td>
+          <td>${formatearFecha(item.fecha)}</td>
+          <td style="text-align:center;">
+            <div class="acciones-tabla">
+              <button type="button" class="btn-ver" title="Ver Detalle" onclick="window.verDetalle(${item.id})">
+                👁️
+              </button>
+              ${tienePermisoGestion ? `
+                <button type="button" class="btn-editar" title="Editar Auditoría" onclick="window.abrirEditarAuditoriaModal(${item.id})">
+                  ✏️
+                </button>
+                <button type="button" class="btn-eliminar" title="Eliminar Auditoría" onclick="window.eliminarAuditoriaRegistro(${item.id})">
+                  🗑️
+                </button>
+              ` : ''}
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
   }
 
+  // ==================================================================
+  // VISUALIZADOR DE DETALLE
+  // ==================================================================
   window.verDetalle = function (id) {
     const a = auditoriasCache.find(x => x.id === Number(id));
     if (!a) return;
@@ -450,19 +490,177 @@
   };
 
   // ==================================================================
-  // LISTENERS
+  // MODAL Y ACCIÓN: EDITAR AUDITORÍA
   // ==================================================================
+  window.abrirEditarAuditoriaModal = function (id) {
+    const item = auditoriasCache.find(a => a.id === Number(id));
+    if (!item) return;
+
+    setVal('editarAuditoriaId', item.id);
+    setVal('editarNombre', item.nombre);
+    setVal('editarResponsable', item.responsable);
+    setVal('editarFecha', item.fecha);
+    setVal('editarProceso', item.proceso);
+    setVal('editarEstado', item.estado);
+    setVal('editarObservaciones', item.observaciones || '');
+
+    const modal = $('modalEditarAuditoria');
+    if (modal) {
+      modal.classList.add('active');
+      modal.style.display = 'flex';
+    }
+  };
+
+  window.guardarEdicionAuditoriaModal = async function () {
+    const btn = $('guardarEdicionAuditoria');
+    try {
+      const id = Number(getVal('editarAuditoriaId'));
+      if (!id) return;
+
+      const nombre = getVal('editarNombre').trim();
+      const responsable = getVal('editarResponsable').trim();
+      const fecha = getVal('editarFecha');
+      const proceso = getVal('editarProceso').trim();
+      const estado = getVal('editarEstado');
+      const observaciones = getVal('editarObservaciones').trim();
+
+      if (!nombre || !responsable || !proceso) {
+        notificar('Complete los campos obligatorios: Nombre, Responsable y Proceso.', 'warning');
+        return;
+      }
+
+      if (btn) btn.disabled = true;
+
+      if (window.supabaseClient) {
+        const { error } = await window.supabaseClient
+          .from('auditorias')
+          .update({
+            nombre,
+            responsable,
+            fecha,
+            proceso,
+            estado,
+            observaciones
+          })
+          .eq('id', id);
+
+        if (error) {
+          notificar('Error al actualizar en la base de datos: ' + error.message, 'error');
+          return;
+        }
+      }
+
+      const index = auditoriasCache.findIndex(a => a.id === id);
+      if (index !== -1) {
+        auditoriasCache[index] = {
+          ...auditoriasCache[index],
+          nombre,
+          responsable,
+          fecha,
+          proceso,
+          estado,
+          observaciones
+        };
+      }
+
+      const modal = $('modalEditarAuditoria');
+      if (modal) {
+        modal.classList.remove('active');
+        modal.style.display = 'none';
+      }
+
+      filtrarTablaPorCategoria();
+      notificar('Auditoría actualizada exitosamente.', 'success');
+
+    } catch (err) {
+      console.error('Error al guardar edición:', err);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  };
+
+  // ==================================================================
+  // ACCIÓN: ELIMINAR AUDITORÍA (BD + STORAGE)
+  // ==================================================================
+  window.eliminarAuditoriaRegistro = async function (id) {
+    if (!confirm('¿Está seguro de eliminar definitivamente esta auditoría y sus soportes?')) {
+      return;
+    }
+
+    try {
+      const item = auditoriasCache.find(a => a.id === Number(id));
+
+      if (item && item.pdf_url) {
+        try {
+          const docs = JSON.parse(item.pdf_url);
+          const rutas = docs.filter(d => d.ruta).map(d => d.ruta);
+          if (rutas.length > 0 && window.supabaseClient) {
+            await window.supabaseClient.storage.from(AUDITORIAS_BUCKET).remove(rutas);
+          }
+        } catch (errDocs) {
+          console.warn('Advertencia limpiando Storage:', errDocs);
+        }
+      }
+
+      if (window.supabaseClient) {
+        const { error } = await window.supabaseClient
+          .from('auditorias')
+          .delete()
+          .eq('id', Number(id));
+
+        if (error) {
+          notificar('Error al eliminar registro: ' + error.message, 'error');
+          return;
+        }
+      }
+
+      auditoriasCache = auditoriasCache.filter(a => a.id !== Number(id));
+      filtrarTablaPorCategoria();
+      notificar('Auditoría eliminada del sistema.', 'success');
+
+    } catch (err) {
+      console.error('Error al eliminar:', err);
+      notificar('No fue posible completar la eliminación.', 'error');
+    }
+  };
+
+  // ==================================================================
+  // LISTENERS Y EVENTOS
+  // ==================================================================
+  document.addEventListener('input', function (e) {
+    if (e.target && e.target.id === 'buscarAuditoria') {
+      const q = e.target.value.toLowerCase().trim();
+      const baseCategoria = auditoriasCache.filter(a => (a.categoria || a.tipo) === categoriaActiva);
+
+      if (!q) {
+        renderTabla(baseCategoria);
+        return;
+      }
+
+      const filtrados = baseCategoria.filter(a =>
+        String(a.nombre || '').toLowerCase().includes(q) ||
+        String(a.responsable || '').toLowerCase().includes(q) ||
+        String(a.proceso || '').toLowerCase().includes(q) ||
+        String(a.estado || '').toLowerCase().includes(q)
+      );
+
+      renderTabla(filtrados);
+    }
+  });
+
   document.addEventListener('click', function (e) {
-    // Menú lateral
+    // 1. Selector de menú lateral
     const navItem = e.target.closest('.audit-nav-item');
     if (navItem) {
       cambiarCategoria(navItem.dataset.cat, navItem);
     }
 
+    // 2. Cerrar modales
     if (e.target.closest('#cerrarDetalleAuditoria')) {
       $('modalDetalleAuditoria').style.display = 'none';
     }
 
+    // 3. Subir adjuntos
     if (e.target.closest('#btnAgregarDocumento')) {
       const fi = $('documentoInput');
       if (fi) {
@@ -474,16 +672,20 @@
       }
     }
 
+    // 4. Agregar enlace Drive
     if (e.target.closest('#btnAgregarDriveAuditoria')) {
       agregarDriveCreacion();
     }
 
+    // 5. Guardar auditoría nueva
     if (e.target.closest('#guardarAuditoria')) {
       guardarAuditoria();
     }
   });
 
-  // Inicialización
+  // ==================================================================
+  // INICIALIZACIÓN DEL MÓDULO
+  // ==================================================================
   setVal('fechaInput', obtenerFechaHoy());
   renderizarCamposDinamicos('Logística');
   cargarAuditorias();
