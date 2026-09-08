@@ -447,11 +447,54 @@
   display: block;
 }
 
-/* TABLAS ESTILIZADAS */
+/* ==========================================================
+   CONTENEDOR CON SCROLL INTERNO Y CABECERA FIJA
+   ========================================================== */
+
+/* 1. Contenedor con altura delimitada y scroll vertical */
 .table-scroll-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--gris-borde);
+  max-height: 520px;              /* Altura visible antes de activar el scroll */
+  overflow-y: auto;               /* Habilita el desplazamiento vertical interno */
+  overflow-x: auto;               /* Permite desplazamiento horizontal en pantallas reducidas */
+  border: 1px solid var(--gris-borde, #E2E8F0);
   border-radius: 12px;
+  position: relative;             /* Contexto de posicionamiento para la cabecera sticky */
+  background: #FFFFFF;
+}
+
+/* 2. Cabecera fija durante el desplazamiento */
+.inv-pro-table thead th {
+  position: sticky;
+  top: 0;                         /* Se ancla al borde superior del contenedor */
+  z-index: 10;                    /* Evita que el contenido de las filas se superponga al subir */
+  background: var(--azul-deep, #0F1E45); /* Mantiene el color sólido de fondo */
+  color: #FFFFFF;
+  padding: 12px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+/* 3. Estilización de la barra de desplazamiento interna */
+.table-scroll-wrap::-webkit-scrollbar {
+  width: 8px;                     /* Ancho de la barra vertical */
+  height: 8px;                    /* Alto de la barra horizontal */
+}
+
+.table-scroll-wrap::-webkit-scrollbar-track {
+  background: #F1F5F9;            /* Fondo del riel */
+  border-radius: 8px;
+}
+
+.table-scroll-wrap::-webkit-scrollbar-thumb {
+  background: #CBD5E1;            /* Color del deslizador */
+  border-radius: 8px;
+}
+
+.table-scroll-wrap::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;            /* Color al pasar el ratón */
 }
 
 .inv-pro-table {
