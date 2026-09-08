@@ -1,102 +1,111 @@
 <!-- ======================================================= -->
-<!-- MÓDULO DE RECEPCIÓN & DEVOLUCIONES — PRO REDESIGN       -->
+<!-- MÓDULO DE RECEPCIONES & DEVOLUCIONES INTEGRAL (SPA)    -->
 <!-- ======================================================= -->
 <link rel="stylesheet" href="css/recepcion.css">
 
-<div class="module-container">
+<div class="module-container rec-module-container">
 
-  <!-- HEADER HERO -->
-  <header class="module-header">
-    <div class="header-title">
-      <div class="header-icon" id="heroIcono">📥</div>
-      <div>
-        <h2>Control de Recepción & Devoluciones</h2>
-        <p>Trazabilidad pericial de mercancía entrante, gestión de devoluciones y seguimiento con compras.</p>
-      </div>
+  <!-- ===================================== -->
+  <!-- 1. HEADER HERO DEL MÓDULO            -->
+  <!-- ===================================== -->
+  <header class="rec-hero-header">
+    <div class="rec-hero-info">
+      <span class="rec-chip-tag">GESTIÓN LOGÍSTICA // CONTROL DE ENTRADAS Y SALIDAS</span>
+      <h2 id="recHeroTitulo">📥 Control de Recepciones & Devoluciones</h2>
+      <p id="recHeroDesc">Trazabilidad de compras entrantes, retorno de garantías y reintegro de materiales de proyectos.</p>
     </div>
+    <div class="rec-hero-badge" id="recOperacionBadge">Modo: Recepción Compras</div>
   </header>
 
-  <!-- KPIS PRINCIPALES -->
-  <div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-label">TOTAL RECEPCIONES</span>
-        <span class="kpi-icon">📦</span>
+  <!-- ===================================== -->
+  <!-- 2. BARRA DE MÉTRICAS (KPIS)           -->
+  <!-- ===================================== -->
+  <section class="rec-kpi-grid">
+    <div class="rec-kpi-card">
+      <div class="rec-kpi-head">
+        <span>RECEPCIONES PROVEEDOR</span>
+        <span>📦</span>
       </div>
       <h3 id="kpiRecepciones">0</h3>
-      <span class="kpi-trend">Mercancía recibida</span>
+      <small>Mercancía recibida</small>
     </div>
 
-    <div class="kpi-card kpi-devolucion">
-      <div class="kpi-header">
-        <span class="kpi-label">TOTAL DEVOLUCIONES</span>
-        <span class="kpi-icon">📤</span>
+    <div class="rec-kpi-card rec-kpi-warn">
+      <div class="rec-kpi-head">
+        <span>DEV. A PROVEEDORES</span>
+        <span>📤</span>
       </div>
-      <h3 id="kpiDevoluciones">0</h3>
-      <span class="kpi-trend">Retornos a proveedor</span>
+      <h3 id="kpiDevolucionesProv">0</h3>
+      <small>Garantías y averías</small>
     </div>
 
-    <div class="kpi-card kpi-warning">
-      <div class="kpi-header">
-        <span class="kpi-label">NOVEDADES</span>
-        <span class="kpi-icon">⚠️</span>
+    <div class="rec-kpi-card rec-kpi-proy">
+      <div class="rec-kpi-head">
+        <span>DEV. DE PROYECTOS</span>
+        <span>🏗️</span>
+      </div>
+      <h3 id="kpiDevolucionesProy">0</h3>
+      <small>Reintegros de obras</small>
+    </div>
+
+    <div class="rec-kpi-card rec-kpi-danger">
+      <div class="rec-kpi-head">
+        <span>NOVEDADES ACTIVAS</span>
+        <span>⚠️</span>
       </div>
       <h3 id="kpiNovedades">0</h3>
-      <span class="kpi-trend">En seguimiento</span>
+      <small>En seguimiento</small>
     </div>
+  </section>
 
-    <div class="kpi-card kpi-danger">
-      <div class="kpi-header">
-        <span class="kpi-label">FALTANTES</span>
-        <span class="kpi-icon">❌</span>
-      </div>
-      <h3 id="kpiFaltantes">0</h3>
-      <span class="kpi-trend">Discrepancias físicas</span>
-    </div>
-  </div>
+  <!-- ===================================== -->
+  <!-- 3. ÁREA PRINCIPAL (2 COLUMNAS)        -->
+  <!-- ===================================== -->
+  <div class="rec-workspace-layout">
 
-  <!-- FORMULARIO DE REGISTRO UNIFICADO -->
-  <section class="module-card">
-    <div class="table-header">
-      <div class="table-header-title">
-        <div class="card-icon" id="formCardIcon">📝</div>
+    <!-- COLUMNA IZQUIERDA: TERMINAL DE REGISTRO -->
+    <aside class="rec-station-panel">
+      <div class="rec-station-head">
+        <span class="rec-station-icon" id="panelOperacionIcon">📝</span>
         <div>
-          <h3 id="formCardTitulo">Registrar Operación Logística</h3>
-          <p class="section-description">Seleccione el tipo de operación para adaptar los datos requeridos.</p>
+          <h3 id="panelOperacionTitulo">Registrar Operación</h3>
+          <p class="rec-station-subtitle">Seleccione el flujo correspondiente</p>
         </div>
       </div>
 
-      <!-- SELECTOR DE OPERACIÓN (RECEPCIÓN / DEVOLUCIÓN) -->
-      <div class="switch-operacion-wrap">
-        <button type="button" class="btn-switch-op active" id="btnModoRecepcion" onclick="window.cambiarModoOperacion('Recepcion')">
-          📥 Recepción de Mercancía
+      <!-- SELECTOR DE FLUJO (3 MODOS) -->
+      <div class="rec-selector-flujo">
+        <button type="button" class="btn-flujo active" id="btnModoRecepcion" onclick="window.cambiarModo('Recepcion')">
+          📥 Recepción
         </button>
-        <button type="button" class="btn-switch-op" id="btnModoDevolucion" onclick="window.cambiarModoOperacion('Devolucion')">
-          📤 Devolución a Proveedor
+        <button type="button" class="btn-flujo" id="btnModoDevolucionProv" onclick="window.cambiarModo('DevolucionProv')">
+          📤 Dev. Proveedor
+        </button>
+        <button type="button" class="btn-flujo" id="btnModoDevolucionProy" onclick="window.cambiarModo('DevolucionProy')">
+          🏗️ Dev. Proyectos
         </button>
       </div>
-    </div>
 
-    <form id="formRecepcionFast" autocomplete="off" onsubmit="event.preventDefault();">
-      <input type="hidden" id="operacionModoInput" value="Recepcion">
+      <!-- FORMULARIO DE ACCIÓN RÁPIDA -->
+      <form id="formRecepcionFast" autocomplete="off" onsubmit="event.preventDefault();">
+        <input type="hidden" id="tipoOperacionInput" value="Recepcion">
 
-      <div class="form-grid">
-        <!-- PROVEEDOR -->
-        <div class="input-group">
-          <label for="proveedorInput">PROVEEDOR</label>
-          <input type="text" id="proveedorInput" placeholder="Nombre o Razón Social" required>
+        <!-- ORIGEN / PROVEEDOR / PROYECTO -->
+        <div class="rec-field">
+          <label for="origenInput" id="labelOrigen">PROVEEDOR / RAZÓN SOCIAL</label>
+          <input type="text" id="origenInput" placeholder="Nombre de la empresa o proveedor" required>
         </div>
 
         <!-- MATERIAL -->
-        <div class="input-group">
-          <label for="materialInput">MATERIAL / REFERENCIA</label>
-          <input type="text" id="materialInput" placeholder="Descripción del artículo" required>
+        <div class="rec-field">
+          <label for="materialInput">DESCRIPCIÓN DEL MATERIAL / REFERENCIA</label>
+          <input type="text" id="materialInput" placeholder="ej. Cable THHN #12 / Luminaria LED 100W" required>
         </div>
 
-        <!-- TIPO DE EMBALAJE (CAMPOS DE RECEPCIÓN) -->
-        <div class="input-group seccion-recepcion">
-          <label for="tipoRecepcionInput">TIPO DE EMBALAJE</label>
-          <select id="tipoRecepcionInput">
+        <!-- CAMPO EXCLUSIVO 1: EMBALAJE (SOLO RECEPCIÓN) -->
+        <div class="rec-field seccion-recepcion">
+          <label for="tipoEmbalajeInput">TIPO DE EMBALAJE</label>
+          <select id="tipoEmbalajeInput">
             <option value="Cajas">📦 Cajas</option>
             <option value="Unidades">🔌 Unidades</option>
             <option value="Cable Metro">🧵 Cable por Metro</option>
@@ -105,251 +114,272 @@
           </select>
         </div>
 
-        <!-- MOTIVO DE DEVOLUCIÓN (CAMPOS DE DEVOLUCIÓN) -->
-        <div class="input-group seccion-devolucion" style="display:none;">
-          <label for="motivoDevolucionInput">MOTIVO DE DEVOLUCIÓN</label>
-          <select id="motivoDevolucionInput">
-            <option value="Material Averiado / Roto">🔴 Material Averiado / Daño de Fábrica</option>
-            <option value="Referencia Trocada / Despacho Errado">🔄 Referencia Trocada / No Solicitada</option>
-            <option value="Material Incompleto / Faltante Interno">🟠 Incompleto / Faltante Interno</option>
-            <option value="Garantía de Calidad">⚠️ Garantía Técnica / Calidad</option>
-            <option value="Sobrepedido / Exceso">📦 Sobrepedido no Autorizado</option>
+        <!-- CAMPO EXCLUSIVO 2: MOTIVO DEV. PROVEEDOR -->
+        <div class="rec-field seccion-dev-prov" style="display:none;">
+          <label for="motivoProvInput">MOTIVO DE DEVOLUCIÓN A PROVEEDOR</label>
+          <select id="motivoProvInput">
+            <option value="Avería de Fábrica">🔴 Material Averiado / Daño de Fábrica</option>
+            <option value="Referencia Trocada">🔄 Referencia Equivocada / No Pedida</option>
+            <option value="Faltante en Empaque">🟠 Faltante interno en empaque</option>
+            <option value="Garantía Técnica">⚠️ Falla en Pruebas / Garantía</option>
+            <option value="Sobrepedido">📦 Exceso de Despacho no Autorizado</option>
           </select>
         </div>
 
-        <!-- ACCIÓN REQUERIDA (CAMPOS DE DEVOLUCIÓN) -->
-        <div class="input-group seccion-devolucion" style="display:none;">
-          <label for="accionDevolucionInput">ACCIÓN REQUERIDA</label>
-          <select id="accionDevolucionInput">
-            <option value="Reposición de Material">🔁 Reposición de Mercancía</option>
-            <option value="Nota Crédito">💰 Emisión de Nota Crédito</option>
-            <option value="Reparación Técnica">🛠️ Reparación / Ajuste por Garantía</option>
+        <!-- CAMPO EXCLUSIVO 3: MOTIVO DEV. PROYECTO -->
+        <div class="rec-field seccion-dev-proy" style="display:none;">
+          <label for="motivoProyInput">TIPO DE REINTEGRO DE PROYECTO</label>
+          <select id="motivoProyInput">
+            <option value="Sobrante de Obra">🟢 Sobrante Conforme (Material Nuevo)</option>
+            <option value="Material Desmontado">🟡 Material Usado / Retirado de Obra</option>
+            <option value="Dañado en Instalación">🔴 Averiado / Dañado en Maniobra</option>
+            <option value="Baja / Chatarra">⚫ Dado de Baja / Retiro Definitivo</option>
           </select>
         </div>
 
-        <!-- CANTIDAD TOTAL -->
-        <div class="input-group">
-          <label for="cantidadInput" id="labelCantidad">CANTIDAD TOTAL RECIBIDA</label>
-          <input type="number" id="cantidadInput" placeholder="0" min="1" required>
+        <!-- CANTIDAD Y REVISIÓN -->
+        <div class="rec-grid-2col">
+          <div class="rec-field">
+            <label for="cantidadInput" id="labelCantidad">CANTIDAD TOTAL</label>
+            <input type="number" id="cantidadInput" placeholder="0" min="1" required>
+          </div>
+
+          <div class="rec-field seccion-recepcion">
+            <label for="revisadasInput">CANT. REVISADA</label>
+            <input type="number" id="revisadasInput" placeholder="0" min="0">
+          </div>
         </div>
 
-        <!-- REVISADAS (SOLO RECEPCIÓN) -->
-        <div class="input-group seccion-recepcion">
-          <label for="revisadasInput">CANTIDAD REVISADA</label>
-          <input type="number" id="revisadasInput" placeholder="0" min="0">
-        </div>
+        <!-- NOVEDADES Y FALTANTES (SOLO RECEPCIÓN) -->
+        <div class="rec-grid-2col seccion-recepcion">
+          <div class="rec-field">
+            <label for="novedadesInput">NOVEDADES</label>
+            <input type="number" id="novedadesInput" placeholder="0" min="0" value="0">
+          </div>
 
-        <!-- NOVEDADES (SOLO RECEPCIÓN) -->
-        <div class="input-group seccion-recepcion">
-          <label for="novedadesInput">NOVEDADES DETECTADAS</label>
-          <input type="number" id="novedadesInput" placeholder="0" min="0" value="0">
-        </div>
-
-        <!-- FALTANTES (SOLO RECEPCIÓN) -->
-        <div class="input-group seccion-recepcion">
-          <label for="faltantesInput">FALTANTES</label>
-          <input type="number" id="faltantesInput" placeholder="0" min="0" value="0">
+          <div class="rec-field">
+            <label for="faltantesInput">FALTANTES</label>
+            <input type="number" id="faltantesInput" placeholder="0" min="0" value="0">
+          </div>
         </div>
 
         <!-- ESTADO INICIAL -->
-        <div class="input-group">
-          <label for="estadoRecepcionInput">ESTADO DE LA OPERACIÓN</label>
-          <select id="estadoRecepcionInput">
-            <option value="Conforme">🟢 Conforme (Sin Novedad)</option>
-            <option value="Dañado">🔴 Dañado</option>
-            <option value="Faltante">🟠 Faltante</option>
-            <option value="Sobrante">🔵 Sobrante</option>
-            <option value="En Devolución">📤 En Proceso de Devolución</option>
-            <option value="Cerrado">🔒 Novedad Crítica / Cerrada</option>
+        <div class="rec-field">
+          <label for="estadoOperacionInput">ESTADO DE LA OPERACIÓN</label>
+          <select id="estadoOperacionInput">
+            <option value="Conforme">🟢 Conforme / Ingresado a Stock</option>
+            <option value="En Gestión Compras">🛒 En Gestión Compras / Proveedor</option>
+            <option value="En Cuarentena">⚠️ En Cuarentena / Revisión Técnica</option>
+            <option value="Para Chatarra">⚫ Destino Chatarra / Disposición</option>
+            <option value="Solucionado">✅ Solucionado / Cerrado</option>
           </select>
         </div>
-      </div>
 
-      <!-- OBSERVACIONES -->
-      <div class="input-group textarea-group">
-        <label for="observacionInput" id="labelObservacion">OBSERVACIONES Y CONDICIONES DE ENTREGA</label>
-        <textarea id="observacionInput" placeholder="Detalle número de remisión, placa de vehículo, acuerdos o causales..."></textarea>
-      </div>
+        <!-- OBSERVACIONES -->
+        <div class="rec-field">
+          <label for="observacionInput" id="labelObs">OBSERVACIONES / DETALLES DE REMISIÓN</label>
+          <textarea id="observacionInput" rows="3" placeholder="Detalle número de remisión, orden de compra, cuadrilla o novedades..."></textarea>
+        </div>
 
-      <!-- SOPORTES DOCUMENTALES -->
-      <div class="adjuntos-panel" style="margin-top: 20px;">
-        <div class="adjuntos-panel__header">
-          <div>
-            <strong>Soportes Documentales & Fotos</strong>
-            <p>Adjunte remisión firmada, actas de devolución, fotos de averías o enlaces de Google Drive.</p>
+        <!-- ADJUNTOS RÁPIDOS -->
+        <div class="rec-adjuntos-box">
+          <div class="rec-adjuntos-head">
+            <label>SOPORTES Y FOTOGRAFÍAS</label>
+            <span class="rec-contador-chip" id="contadorSoportes">0 / 10</span>
           </div>
-          <span class="adjuntos-contador" id="contadorSoportesRecepcion">0 / 10</span>
+
+          <div class="rec-adjuntos-btns">
+            <input type="file" id="archivoInput" accept="image/*,application/pdf,video/*" multiple hidden>
+            <button type="button" class="btn-rec-subir" onclick="document.getElementById('archivoInput').click()">
+              ＋ Cargar Archivos
+            </button>
+            <input type="url" id="driveLinkInput" placeholder="Enlace de Drive..." class="input-drive-inline">
+            <button type="button" class="btn-rec-drive" id="btnAgregarDrive">Agregar</button>
+          </div>
+
+          <div id="listaSoportesPreview" class="rec-adjuntos-preview">
+            <small class="rec-vacio-txt">Sin archivos anexados.</small>
+          </div>
         </div>
 
-        <div class="adjuntos-acciones">
-          <input type="file" id="pdfInput" accept="image/*,application/pdf,video/*,.heic,.heif,.mov,.m4v,.mkv" multiple hidden>
-          <button type="button" id="btnAgregarSoportesRecepcion" class="btn-secondary">
-            ＋ Seleccionar Archivos
+        <!-- BOTÓN DE REGISTRO -->
+        <button type="button" id="guardarOperacionBtn" class="btn-rec-submit">
+          💾 <span id="txtBtnSubmit">Guardar Recepción</span>
+        </button>
+      </form>
+    </aside>
+
+    <!-- COLUMNA DERECHA: CONSULTA POR PESTAÑAS Y TABLAS -->
+    <main class="rec-data-panel">
+      
+      <!-- NAVEGACIÓN DE PESTAÑAS -->
+      <div class="rec-tabs-header">
+        <div class="rec-tabs-list">
+          <button type="button" class="rec-tab-btn active" data-tab="tab-recepciones">
+            📥 Recepciones Compras
+          </button>
+          <button type="button" class="rec-tab-btn" data-tab="tab-dev-proveedor">
+            📤 Dev. Proveedor
+          </button>
+          <button type="button" class="rec-tab-btn" data-tab="tab-dev-proyectos">
+            🏗️ Dev. Proyectos
+          </button>
+          <button type="button" class="rec-tab-btn" data-tab="tab-resumen-mensual">
+            📊 Consolidado
           </button>
         </div>
 
-        <div class="adjuntos-link-row">
-          <input type="url" id="driveLinkRecepcion" placeholder="Pegue un enlace de Google Drive y presione Enter">
-          <button type="button" id="btnAgregarDriveRecepcion" class="btn-secondary">
-            Agregar Enlace
-          </button>
-        </div>
-
-        <div id="listaSoportesRecepcion" class="adjuntos-lista">
-          <div class="adjunto-vacio">Aún no se han agregado soportes documentales.</div>
+        <!-- BUSCADOR CONTEXTUAL -->
+        <div class="rec-search-box">
+          <input type="text" id="buscadorRecepcion" placeholder="Buscar por origen, material o estado..." autocomplete="off">
         </div>
       </div>
 
-      <!-- BOTÓN GUARDAR -->
-      <div class="guardar-container" style="margin-top: 22px;">
-        <button id="guardarRecepcion" class="btn-primary" type="button">
-          <span class="btn-icon">💾</span> <span id="txtBtnGuardar">Guardar Recepción</span>
-        </button>
+      <!-- PESTAÑA 1: RECEPCIONES -->
+      <div class="rec-tab-content active" id="tab-recepciones">
+        <div class="rec-table-scroll">
+          <table class="rec-table">
+            <thead>
+              <tr>
+                <th>Proveedor</th>
+                <th>Material</th>
+                <th>Embalaje</th>
+                <th>Cant</th>
+                <th>% Rev</th>
+                <th>Nov</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+                <th style="text-align:center;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="recepcionesBody">
+              <!-- JS Render -->
+            </tbody>
+          </table>
+        </div>
       </div>
-    </form>
-  </section>
 
-  <!-- CONTROL POR PESTAÑAS: RECEPCIONES, DEVOLUCIONES Y CONSOLIDADO -->
-  <section class="module-card">
-    <div class="tabs-header-recepcion">
-      <div class="tabs-nav-bar">
-        <button type="button" class="tab-recepcion-btn active" data-tab="tab-recepciones-todas">
-          📥 Recepciones
-        </button>
-        <button type="button" class="tab-recepcion-btn" data-tab="tab-devoluciones-todas">
-          📤 Devoluciones
-        </button>
-        <button type="button" class="tab-recepcion-btn" data-tab="tab-resumen-mensual">
-          📊 Consolidado Mensual
-        </button>
+      <!-- PESTAÑA 2: DEVOLUCIONES A PROVEEDOR -->
+      <div class="rec-tab-content" id="tab-dev-proveedor">
+        <div class="rec-table-scroll">
+          <table class="rec-table">
+            <thead>
+              <tr>
+                <th>Proveedor</th>
+                <th>Material</th>
+                <th>Motivo Devolución</th>
+                <th>Cant</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+                <th style="text-align:center;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="devProveedorBody">
+              <!-- JS Render -->
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div class="search-wrapper">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="buscarRecepcion" class="input-search" placeholder="Buscar por proveedor o material..." autocomplete="off">
+      <!-- PESTAÑA 3: DEVOLUCIONES DE PROYECTOS -->
+      <div class="rec-tab-content" id="tab-dev-proyectos">
+        <div class="rec-table-scroll">
+          <table class="rec-table">
+            <thead>
+              <tr>
+                <th>Proyecto / Cuadrilla</th>
+                <th>Material Reintegrado</th>
+                <th>Condición</th>
+                <th>Cant</th>
+                <th>Estado Destino</th>
+                <th>Fecha</th>
+                <th style="text-align:center;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="devProyectosBody">
+              <!-- JS Render -->
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
 
-    <!-- PESTAÑA 1: TODAS LAS RECEPCIONES -->
-    <div class="tab-recepcion-content active" id="tab-recepciones-todas">
-      <div class="table-scroll-container">
-        <table class="table-pro">
-          <thead>
-            <tr>
-              <th>Proveedor</th>
-              <th>Material</th>
-              <th>Embalaje</th>
-              <th>Cant</th>
-              <th>% Rev</th>
-              <th>Nov</th>
-              <th>Estado Original</th>
-              <th>Estado Gestión</th>
-              <th>Fecha</th>
-              <th style="text-align:center;">Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="recepcionesBody"></tbody>
-        </table>
+      <!-- PESTAÑA 4: CONSOLIDADO MENSUAL -->
+      <div class="rec-tab-content" id="tab-resumen-mensual">
+        <div class="rec-table-scroll">
+          <table class="rec-table">
+            <thead>
+              <tr>
+                <th>Mes</th>
+                <th>Recepciones</th>
+                <th>Faltantes</th>
+                <th>Sobrantes</th>
+                <th>Dañados</th>
+                <th>Total Registros</th>
+              </tr>
+            </thead>
+            <tbody id="dashboardRecepcionBody">
+              <!-- JS Render -->
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
 
-    <!-- PESTAÑA 2: DEVOLUCIONES -->
-    <div class="tab-recepcion-content" id="tab-devoluciones-todas">
-      <div class="table-scroll-container">
-        <table class="table-pro">
-          <thead>
-            <tr>
-              <th>Proveedor</th>
-              <th>Material Devuelto</th>
-              <th>Motivo de Devolución</th>
-              <th>Cant</th>
-              <th>Estado Actual</th>
-              <th>Fecha Registro</th>
-              <th style="text-align:center;">Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="devolucionesBody"></tbody>
-        </table>
-      </div>
-    </div>
+    </main>
+  </div>
 
-    <!-- PESTAÑA 3: RESUMEN MENSUAL -->
-    <div class="tab-recepcion-content" id="tab-resumen-mensual">
-      <div class="table-scroll-container">
-        <table class="table-pro">
-          <thead>
-            <tr>
-              <th>Mes</th>
-              <th>Recepciones</th>
-              <th>Faltantes</th>
-              <th>Sobrantes</th>
-              <th>Dañados</th>
-              <th>Total Novedades</th>
-            </tr>
-          </thead>
-          <tbody id="dashboardRecepcionBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <!-- MODAL GESTIÓN COMPRAS & TIMELINE -->
-  <div class="modal-documentos" id="modalGestion" role="dialog" aria-modal="true">
+  <!-- MODAL: GESTIÓN DE SEGUIMIENTO CON PROVEEDORES / PROYECTOS -->
+  <div class="modal-documentos" id="modalGestion" role="dialog" aria-modal="true" style="display:none;">
     <div class="modal-documentos-content modal-gestion-pro">
       <div class="modal-header modal-header-gestion">
         <div class="header-gestion-info">
-          <div class="gestion-icon-badge">🛒</div>
+          <div class="gestion-icon-badge">📋</div>
           <div>
-            <h3>Gestión de Compras & Novedades</h3>
-            <p>Trazabilidad cronológica y resolución de discrepancias con proveedores.</p>
+            <h3 id="modalGestionTitulo">Bitácora de Intervenciones y Acuerdos</h3>
+            <p id="modalGestionDesc">Trazabilidad de comunicaciones, radicados y resoluciones.</p>
           </div>
         </div>
-        <button class="btn-cerrar-modal" type="button" onclick="cerrarModalGestion()" title="Cerrar modal (Esc)">✕</button>
+        <button class="btn-cerrar-modal" type="button" onclick="window.cerrarModalGestion()">✕</button>
       </div>
 
       <div class="modal-gestion-body">
         <div class="gestion-grid-layout">
-          <!-- FORMULARIO DE INTERVENCIÓN -->
+          <!-- Formulario de Intervención -->
           <div class="gestion-card-action">
             <div class="card-action-title">
               <span class="action-bullet"></span>
-              <h4>Nueva Intervención</h4>
+              <h4>Nuevo Seguimiento</h4>
             </div>
 
-            <div class="input-group">
-              <label for="gestionEstadoInput">ESTADO DE GESTIÓN</label>
+            <div class="rec-field">
+              <label for="gestionEstadoInput">ACTUALIZAR ESTADO</label>
               <select id="gestionEstadoInput">
                 <option value="Pendiente">🟡 Pendiente de Revisión</option>
-                <option value="En Gestión Compras">🛒 En Gestión por Compras</option>
+                <option value="En Gestión Compras">🛒 En Gestión con Compras</option>
                 <option value="Contactando Proveedor">📞 Contactando Proveedor</option>
-                <option value="Esperando Respuesta">📦 Esperando Reposición / Nota Crédito</option>
-                <option value="Solucionado">🟢 Solucionado / Mercancía Conforme</option>
+                <option value="Esperando Respuesta">📦 Esperando Reposición / Ajuste</option>
+                <option value="Solucionado">🟢 Solucionado / Reingreso Aprobado</option>
                 <option value="Cerrado">🔒 Novedad Cerrada Definitiva</option>
               </select>
             </div>
 
-            <div class="input-group textarea-group" style="margin-top: 16px;">
-              <label for="gestionComentarioInput">REGISTRO DE SEGUIMIENTO / ACUERDOS</label>
-              <textarea id="gestionComentarioInput" placeholder="Detalle acuerdos, fechas de reposición, guías de retorno o notas crédito..."></textarea>
+            <div class="rec-field" style="margin-top:14px;">
+              <label for="gestionComentarioInput">DETALLE DEL ACUERDO O RADICADO</label>
+              <textarea id="gestionComentarioInput" rows="4" placeholder="Escriba aquí los acuerdos, fechas límite o notas crédito acordadas..."></textarea>
             </div>
 
             <div class="gestion-action-footer">
               <button class="btn-primary btn-full-action" id="guardarGestionBtn" type="button">
-                <span class="btn-icon">💾</span> Registrar Seguimiento
+                💾 Registrar Seguimiento
               </button>
             </div>
           </div>
 
-          <!-- TIMELINE CRONOLÓGICO -->
+          <!-- Timeline Cronológico -->
           <div class="gestion-card-timeline">
             <div class="timeline-head-row">
-              <div>
-                <h4>Historial de Intervenciones</h4>
-                <span class="timeline-subtitle">Línea de tiempo de acciones ejecutadas</span>
-              </div>
+              <h4>Historial de Acciones</h4>
               <span class="timeline-count-badge" id="timelineCountBadge">0 Registros</span>
             </div>
-
             <div class="timeline-scroll-container" id="timelineSeguimiento"></div>
           </div>
         </div>
@@ -357,25 +387,25 @@
     </div>
   </div>
 
-  <!-- MODAL OBSERVACIÓN -->
-  <div class="modal-documentos" id="modalObservacion" role="dialog" aria-modal="true">
-    <div class="modal-documentos-content" style="max-width: 600px;">
+  <!-- MODAL: OBSERVACIÓN / DETALLE COMPLETO -->
+  <div class="modal-documentos" id="modalObservacion" role="dialog" aria-modal="true" style="display:none;">
+    <div class="modal-documentos-content" style="max-width: 580px;">
       <div class="modal-header">
-        <h3>👁️ Observación / Acta</h3>
-        <button class="btn-cerrar-modal" type="button" onclick="cerrarModalObservacion()">✕</button>
+        <h3>👁️ Observación de la Operación</h3>
+        <button class="btn-cerrar-modal" type="button" onclick="window.cerrarModalObservacion()">✕</button>
       </div>
-      <div class="modal-observacion-body" id="contenidoObservacion" style="padding: 24px; line-height: 1.6; color: #334155;"></div>
+      <div id="contenidoObservacion" style="padding: 24px; line-height: 1.6; color: #334155; white-space: pre-wrap;"></div>
     </div>
   </div>
 
-  <!-- MODAL SOPORTES DOCUMENTALES -->
-  <div class="modal-documentos" id="modalSoportesRecepcion" role="dialog" aria-modal="true">
+  <!-- MODAL: VISUALIZADOR DE SOPORTES DOCUMENTALES -->
+  <div class="modal-documentos" id="modalSoportesRecepcion" role="dialog" aria-modal="true" style="display:none;">
     <div class="modal-documentos-content">
       <div class="modal-header">
-        <h3>📎 Soportes Documentales & Fotos</h3>
-        <button class="btn-cerrar-modal" type="button" onclick="cerrarModalSoportesRecepcion()">✕</button>
+        <h3>📎 Soportes y Documentos Vinculados</h3>
+        <button class="btn-cerrar-modal" type="button" onclick="window.cerrarModalSoportesRecepcion()">✕</button>
       </div>
-      <div class="modal-observacion-body" id="contenidoSoportesRecepcion" style="padding: 20px 30px;"></div>
+      <div id="contenidoSoportesRecepcion" style="padding: 20px 28px;"></div>
     </div>
   </div>
 
