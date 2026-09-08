@@ -787,3 +787,17 @@
   window.cargarInventarioBD();
   window.renderHistorial();
 })();
+
+// Manejador de cambio de pestañas (Tabs)
+document.addEventListener('click', function (e) {
+  const tabBtn = e.target.closest('.tab-btn');
+  if (tabBtn) {
+    const targetTab = tabBtn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+    tabBtn.classList.add('active');
+    const panel = document.getElementById(targetTab);
+    if (panel) panel.classList.add('active');
+  }
+});
