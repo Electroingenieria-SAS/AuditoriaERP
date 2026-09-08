@@ -1,19 +1,24 @@
 /**
  * ====================================================================
  * INVENTARIO.JS — Módulo de Inventario Físico, Conteos & Novedades
+ * Versión: 2.8.0 (Protegida contra duplicados y con normalización de Excel)
  * ====================================================================
- * Versión: 2.7.0
  */
 
 (function () {
   'use strict';
 
-  // Estado del Módulo
+  // Variables de estado del módulo
   window.inventarioCache = [];
   window.historialConteos = [];
   window.productoActual = null;
   window.novedadEliminarId = null;
 
+  // Banderas de control de procesos asíncronos
+  let guardandoConteoActivo = false;
+  let reinicioEnProgreso = false;
+
+  // Utilidades de DOM
   function $(id) {
     return document.getElementById(id);
   }
@@ -49,221 +54,210 @@
       window.mostrarNotificacion(titulo, mensaje, tipo);
     } else if (typeof window.notifAlert === 'function') {
       window.notifAlert(mensaje);
+    } else {
+      alert(mensaje);
     }
   }
 
   // ==================================================================
-// 1. CARGA Y SINCRONIZACIÓN DE INVENTARIO (CON RESPALDO SEGURO)
-// ==================================================================
-window.cargarInventarioBD = async function () {
-  // 1. Recuperar de inmediato la copia local para evitar pérdida visual al cambiar de módulo
-  const copiaLocal = localStorage.getItem('inventario');
-  if (copiaLocal) {
-    try {
-      window.inventarioCache = JSON.parse(copiaLocal) || [];
-      window.renderInventario();
-      window.actualizarKPIs();
-    } catch (e) {
-      console.warn('Error leyendo respaldo local:', e);
-    }
-  }
-
-  // 2. Si no hay cliente de base de datos, finaliza conservando lo local
-  if (!window.supabaseClient) {
-    return;
-  }
-
-  // 3. Consultar la base de datos de manera incremental
-  try {
-    const TAMANO_PAGINA = 1000;
-    let desde = 0;
-    let todos = [];
-
-    while (true) {
-      const { data, error } = await window.supabaseClient
-        .from('inventario')
-        .select('codigo, producto, ubicacion, stock_sistema, conteo_fisico, diferencia, estado')
-        .order('codigo')
-        .range(desde, desde + TAMANO_PAGINA - 1);
-
-      if (error) {
-        console.error('Error cargando inventario desde Supabase:', error.message);
-        break;
+  // 1. CARGA Y SINCRONIZACIÓN DE INVENTARIO (OFFLINE-FIRST)
+  // ==================================================================
+  window.cargarInventarioBD = async function () {
+    // Recuperación inmediata desde caché local para evitar pantalla vacía al cambiar de pestaña
+    const copiaLocal = localStorage.getItem('inventario');
+    if (copiaLocal) {
+      try {
+        window.inventarioCache = JSON.parse(copiaLocal) || [];
+        window.renderInventario();
+        window.actualizarKPIs();
+      } catch (e) {
+        console.warn('Advertencia leyendo respaldo local:', e);
       }
-
-      if (!data || data.length === 0) break;
-      todos = todos.concat(data);
-      if (data.length < TAMANO_PAGINA) break;
-      desde += TAMANO_PAGINA;
     }
 
-    // Si la base de datos devolvió datos, sincronizamos la vista y el almacenamiento local
-    if (todos.length > 0) {
-      window.inventarioCache = todos;
-      localStorage.setItem('inventario', JSON.stringify(todos));
-      window.renderInventario();
-      window.actualizarKPIs();
-    }
-
-    await window.cargarNovedadesBD();
-  } catch (err) {
-    console.error('Excepción al cargar inventario:', err);
-  }
-};
-
-// ==================================================================
-// 2. DETECCIÓN AUTOMÁTICA Y EXTRACCIÓN ESTRICTA DE LAS 4 COLUMNAS
-// ==================================================================
-function normalizarLlave(texto) {
-  return String(texto || '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Elimina tildes
-    .replace(/[^a-z0-9]/g, '');      // Conserva solo alfanuméricos
-}
-
-function mapearFilaExcel(fila) {
-  let codigo = '';
-  let producto = '';
-  let ubicacion = 'Principal';
-  let stockSistema = 0;
-
-  const entradas = Object.entries(fila);
-
-  for (const [llaveOriginal, valor] of entradas) {
-    const k = normalizarLlave(llaveOriginal);
-    const valLimpio = String(valor ?? '').trim();
-
-    // 1. Detección de CÓDIGO
-    if (!codigo && (k.includes('codigo') || k === 'cod' || k.includes('referencia') || k.includes('ref') || k === 'item' || k === 'id')) {
-      codigo = valLimpio;
-      continue;
-    }
-
-    // 2. Detección de PRODUCTO / REFERENCIA
-    if (!producto && (k.includes('producto') || k.includes('descripcion') || k.includes('desc') || k.includes('articulo') || k.includes('material') || k.includes('nombre'))) {
-      producto = valLimpio;
-      continue;
-    }
-
-    // 3. Detección de UBICACIÓN
-    if (ubicacion === 'Principal' && (k.includes('ubicacion') || k.includes('ubi') || k.includes('bodega') || k.includes('estante') || k.includes('rack') || k.includes('seccion'))) {
-      if (valLimpio) ubicacion = valLimpio;
-      continue;
-    }
-
-    // 4. Detección de STOCK SISTEMA
-    if (stockSistema === 0 && (k.includes('stock') || k.includes('sistema') || k.includes('saldo') || k.includes('cantidad') || k.includes('cant') || k.includes('existencia') || k.includes('teorico'))) {
-      const parsed = parseFloat(String(valor).replace(/,/g, '.'));
-      stockSistema = isNaN(parsed) ? 0 : parsed;
-      continue;
-    }
-  }
-
-  if (!codigo) return null;
-
-  // Objeto estructurado exclusivamente con las 4 columnas objetivo
-  return {
-    codigo: codigo,
-    producto: producto || codigo,
-    ubicacion: ubicacion,
-    stock_sistema: stockSistema,
-    conteo_fisico: null,
-    diferencia: null,
-    estado: 'Pendiente',
-    usuario: window.usuarioLogueado?.usuario || 'Sistema'
-  };
-}
-
-async function leerExcel(e) {
-  try {
-    if (typeof window.tienePermiso === 'function' && !window.tienePermiso('inventario', 'crear')) {
-      notificar('Acceso denegado: No cuenta con permisos para cargar inventarios.');
+    if (!window.supabaseClient) {
       return;
     }
 
-    const file = e.target.files[0];
-    if (!file) return;
+    try {
+      const TAMANO_PAGINA = 1000;
+      let desde = 0;
+      let todos = [];
 
-    const reader = new FileReader();
-    reader.onload = async function (event) {
-      try {
-        const data = new Uint8Array(event.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+      while (true) {
+        const { data, error } = await window.supabaseClient
+          .from('inventario')
+          .select('codigo, producto, ubicacion, stock_sistema, conteo_fisico, diferencia, estado')
+          .order('codigo')
+          .range(desde, desde + TAMANO_PAGINA - 1);
 
-        if (!json || json.length === 0) {
-          notificar('El archivo Excel se encuentra vacío.', 'error');
-          return;
+        if (error) {
+          console.error('Error cargando inventario desde Supabase:', error.message);
+          break;
         }
 
-        // Filtrar y mapear únicamente las columnas seleccionadas
-        const filtrados = [];
-        for (const fila of json) {
-          const item = mapearFilaExcel(fila);
-          if (item && item.codigo) {
-            filtrados.push(item);
-          }
-        }
+        if (!data || data.length === 0) break;
+        todos = todos.concat(data);
+        if (data.length < TAMANO_PAGINA) break;
+        desde += TAMANO_PAGINA;
+      }
 
-        if (filtrados.length === 0) {
-          notificar('No se pudo identificar la columna de Código en el Excel.', 'error');
-          return;
-        }
-
-        // 1. Guardar de forma inmediata en el estado de la aplicación y localStorage
-        window.inventarioCache = filtrados;
-        localStorage.setItem('inventario', JSON.stringify(filtrados));
-
-        // 2. Renderizar visualmente al instante
+      if (todos.length > 0) {
+        window.inventarioCache = todos;
+        localStorage.setItem('inventario', JSON.stringify(todos));
         window.renderInventario();
         window.actualizarKPIs();
-
-        // 3. Subir en segundo plano a Supabase por lotes
-        if (window.supabaseClient) {
-          try {
-            const LOTE = 200;
-            for (let i = 0; i < filtrados.length; i += LOTE) {
-              const chunk = filtrados.slice(i, i + LOTE);
-              const { error: upsertErr } = await window.supabaseClient
-                .from('inventario')
-                .upsert(chunk, { onConflict: 'codigo' });
-
-              if (upsertErr) {
-                console.warn('Advertencia en upsert Supabase:', upsertErr.message);
-              }
-            }
-          } catch (dbErr) {
-            console.warn('No se pudo sincronizar en la nube, pero se guardó en local:', dbErr);
-          }
-        }
-
-        if (typeof window.guardarHistorial === 'function') {
-          await window.guardarHistorial('CARGA_EXCEL', 'INVENTARIO', `Se importaron ${filtrados.length} referencias procesadas.`);
-        }
-
-        notificar(`Se procesaron ${filtrados.length} productos correctamente.`, 'success');
-
-      } catch (err) {
-        console.error('Error procesando el archivo Excel:', err);
-        notificar('Error al procesar el archivo Excel.', 'error');
-      } finally {
-        // Limpiar el input para permitir recargar el mismo archivo si es necesario
-        e.target.value = '';
       }
-    };
 
-    reader.readAsArrayBuffer(file);
-  } catch (e) {
-    console.error('Excepción general en lectura de Excel:', e);
-  }
-}
+      await window.cargarNovedadesBD();
+    } catch (err) {
+      console.error('Excepción al cargar inventario:', err);
+    }
+  };
 
   // ==================================================================
-  // 3. BUSCADOR Y REGISTRO DE CONTEO FÍSICO
+  // 2. LECTURA Y FILTRADO ESTRICTO DE EXCEL (4 COLUMNAS)
+  // ==================================================================
+  function normalizarLlave(texto) {
+    return String(texto || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '');
+  }
+
+  function mapearFilaExcel(fila) {
+    let codigo = '';
+    let producto = '';
+    let ubicacion = 'Principal';
+    let stockSistema = 0;
+
+    const entradas = Object.entries(fila);
+
+    for (const [llaveOriginal, valor] of entradas) {
+      const k = normalizarLlave(llaveOriginal);
+      const valLimpio = String(valor ?? '').trim();
+
+      // Detección de Código
+      if (!codigo && (k.includes('codigo') || k === 'cod' || k.includes('referencia') || k.includes('ref') || k === 'item' || k === 'id')) {
+        codigo = valLimpio;
+        continue;
+      }
+
+      // Detección de Producto / Referencia
+      if (!producto && (k.includes('producto') || k.includes('descripcion') || k.includes('desc') || k.includes('articulo') || k.includes('material') || k.includes('nombre'))) {
+        producto = valLimpio;
+        continue;
+      }
+
+      // Detección de Ubicación
+      if (ubicacion === 'Principal' && (k.includes('ubicacion') || k.includes('ubi') || k.includes('bodega') || k.includes('estante') || k.includes('rack') || k.includes('seccion'))) {
+        if (valLimpio) ubicacion = valLimpio;
+        continue;
+      }
+
+      // Detección de Stock Sistema
+      if (stockSistema === 0 && (k.includes('stock') || k.includes('sistema') || k.includes('saldo') || k.includes('cantidad') || k.includes('cant') || k.includes('existencia') || k.includes('teorico'))) {
+        const parsed = parseFloat(String(valor).replace(/,/g, '.'));
+        stockSistema = isNaN(parsed) ? 0 : parsed;
+        continue;
+      }
+    }
+
+    if (!codigo) return null;
+
+    return {
+      codigo: codigo,
+      producto: producto || codigo,
+      ubicacion: ubicacion,
+      stock_sistema: stockSistema,
+      conteo_fisico: null,
+      diferencia: null,
+      estado: 'Pendiente',
+      usuario: window.usuarioLogueado?.usuario || 'Sistema'
+    };
+  }
+
+  async function leerExcel(e) {
+    try {
+      if (typeof window.tienePermiso === 'function' && !window.tienePermiso('inventario', 'crear')) {
+        notificar('Acceso denegado: No cuenta con permisos para cargar inventarios.');
+        return;
+      }
+
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async function (event) {
+        try {
+          const data = new Uint8Array(event.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+          if (!json || json.length === 0) {
+            notificar('El archivo Excel se encuentra vacío.', 'error');
+            return;
+          }
+
+          const filtrados = [];
+          for (const fila of json) {
+            const item = mapearFilaExcel(fila);
+            if (item && item.codigo) {
+              filtrados.push(item);
+            }
+          }
+
+          if (filtrados.length === 0) {
+            notificar('No se detectaron columnas válidas (Código, Producto, Stock).', 'error');
+            return;
+          }
+
+          window.inventarioCache = filtrados;
+          localStorage.setItem('inventario', JSON.stringify(filtrados));
+
+          window.renderInventario();
+          window.actualizarKPIs();
+
+          if (window.supabaseClient) {
+            try {
+              const LOTE = 200;
+              for (let i = 0; i < filtrados.length; i += LOTE) {
+                const chunk = filtrados.slice(i, i + LOTE);
+                await window.supabaseClient
+                  .from('inventario')
+                  .upsert(chunk, { onConflict: 'codigo' });
+              }
+            } catch (dbErr) {
+              console.warn('Guardado local completado; sincronización en segundo plano con advertencia:', dbErr);
+            }
+          }
+
+          if (typeof window.guardarHistorial === 'function') {
+            await window.guardarHistorial('CARGA_EXCEL', 'INVENTARIO', `Se importaron ${filtrados.length} referencias.`);
+          }
+
+          notificar(`Se procesaron ${filtrados.length} productos correctamente.`, 'success');
+
+        } catch (err) {
+          console.error('Error procesando Excel:', err);
+          notificar('Error al procesar el archivo Excel.', 'error');
+        } finally {
+          e.target.value = '';
+        }
+      };
+
+      reader.readAsArrayBuffer(file);
+    } catch (e) {
+      console.error('Excepción general en lectura de Excel:', e);
+    }
+  }
+
+  // ==================================================================
+  // 3. CONSULTA Y REGISTRO DE CONTEO FÍSICO
   // ==================================================================
   function buscarProducto() {
     const cod = getVal('codigoInput').trim().toUpperCase();
@@ -280,7 +274,7 @@ async function leerExcel(e) {
       setVal('nombreProducto', '-');
       setVal('ubicacionProducto', '-');
       setVal('stockProducto', '-');
-      $('resultadoTexto').innerText = '-';
+      if ($('resultadoTexto')) $('resultadoTexto').innerText = '-';
       notificar(`El código "${cod}" no existe en el inventario cargado.`);
       return;
     }
@@ -288,25 +282,30 @@ async function leerExcel(e) {
     const stockTeorico = extraerStock(prod);
     window.productoActual = { ...prod, stock_sistema: stockTeorico };
 
-    $('codigoProducto').innerText = prod.codigo;
-    $('nombreProducto').innerText = prod.producto || '-';
-    $('ubicacionProducto').innerText = prod.ubicacion || 'General';
-    $('stockProducto').innerText = stockTeorico;
+    if ($('codigoProducto')) $('codigoProducto').innerText = prod.codigo;
+    if ($('nombreProducto')) $('nombreProducto').innerText = prod.producto || '-';
+    if ($('ubicacionProducto')) $('ubicacionProducto').innerText = prod.ubicacion || 'General';
+    if ($('stockProducto')) $('stockProducto').innerText = stockTeorico;
 
     const fisico = getVal('conteoFisico').trim();
-    if (fisico !== '') {
-      const diff = Number(fisico) - stockTeorico;
-      $('resultadoTexto').innerText = diff > 0 ? `+${diff} (Sobrante)` : diff < 0 ? `${diff} (Faltante)` : '0 (Exacto)';
-      $('resultadoTexto').style.color = diff === 0 ? '#10b981' : diff < 0 ? '#ef4444' : '#f59e0b';
-    } else {
-      $('resultadoTexto').innerText = 'Esperando conteo...';
-      $('resultadoTexto').style.color = '#64748b';
+    const resTxt = $('resultadoTexto');
+    if (resTxt) {
+      if (fisico !== '') {
+        const diff = Number(fisico) - stockTeorico;
+        resTxt.innerText = diff > 0 ? `+${diff} (Sobrante)` : diff < 0 ? `${diff} (Faltante)` : '0 (Exacto)';
+        resTxt.style.color = diff === 0 ? '#10b981' : diff < 0 ? '#ef4444' : '#f59e0b';
+      } else {
+        resTxt.innerText = 'Esperando conteo...';
+        resTxt.style.color = '#64748b';
+      }
     }
 
-    $('conteoFisico').focus();
+    $('conteoFisico')?.focus();
   }
 
   async function registrarConteo() {
+    if (guardandoConteoActivo) return;
+
     if (!window.productoActual) {
       buscarProducto();
       if (!window.productoActual) return;
@@ -318,71 +317,84 @@ async function leerExcel(e) {
       return;
     }
 
-    const conteoFisico = Number(valorFisico);
-    const stockSistema = extraerStock(window.productoActual);
-    const diferencia = conteoFisico - stockSistema;
-    const estado = diferencia === 0 ? 'Exacto' : diferencia < 0 ? 'Faltante' : 'Sobrante';
+    const btnGuardar = $('guardarConteo');
+    try {
+      guardandoConteoActivo = true;
+      if (btnGuardar) btnGuardar.disabled = true;
 
-    const itemActualizado = {
-      ...window.productoActual,
-      stock_sistema: stockSistema,
-      conteo_fisico: conteoFisico,
-      diferencia: diferencia,
-      estado: estado,
-      usuario: window.usuarioLogueado?.usuario || 'Sistema'
-    };
+      const conteoFisico = Number(valorFisico);
+      const stockSistema = extraerStock(window.productoActual);
+      const diferencia = conteoFisico - stockSistema;
+      const estado = diferencia === 0 ? 'Exacto' : diferencia < 0 ? 'Faltante' : 'Sobrante';
 
-    // Actualizar cache local
-    const idx = window.inventarioCache.findIndex(p => p.codigo === window.productoActual.codigo);
-    if (idx > -1) {
-      window.inventarioCache[idx] = itemActualizado;
-    }
-    localStorage.setItem('inventario', JSON.stringify(window.inventarioCache));
+      const itemActualizado = {
+        ...window.productoActual,
+        stock_sistema: stockSistema,
+        conteo_fisico: conteoFisico,
+        diferencia: diferencia,
+        estado: estado,
+        usuario: window.usuarioLogueado?.usuario || 'Sistema'
+      };
 
-    // Agregar a historial de conteos
-    window.historialConteos.unshift({
-      codigo: itemActualizado.codigo,
-      producto: itemActualizado.producto,
-      sistema: stockSistema,
-      fisico: conteoFisico,
-      diferencia: diferencia,
-      estado: estado,
-      fecha: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
-    });
-
-    // Persistir en Supabase
-    if (window.supabaseClient) {
-      try {
-        await window.supabaseClient
-          .from('inventario')
-          .update({
-            conteo_fisico: conteoFisico,
-            diferencia: diferencia,
-            estado: estado,
-            usuario: window.usuarioLogueado?.usuario || 'Sistema'
-          })
-          .eq('codigo', itemActualizado.codigo);
-      } catch (err) {
-        console.warn('Error persistiendo conteo en BD:', err);
+      const idx = window.inventarioCache.findIndex(p => p.codigo === window.productoActual.codigo);
+      if (idx > -1) {
+        window.inventarioCache[idx] = itemActualizado;
       }
+      localStorage.setItem('inventario', JSON.stringify(window.inventarioCache));
+
+      window.historialConteos.unshift({
+        codigo: itemActualizado.codigo,
+        producto: itemActualizado.producto,
+        sistema: stockSistema,
+        fisico: conteoFisico,
+        diferencia: diferencia,
+        estado: estado,
+        fecha: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+      });
+
+      if (window.supabaseClient) {
+        try {
+          await window.supabaseClient
+            .from('inventario')
+            .update({
+              conteo_fisico: conteoFisico,
+              diferencia: diferencia,
+              estado: estado,
+              usuario: window.usuarioLogueado?.usuario || 'Sistema'
+            })
+            .eq('codigo', itemActualizado.codigo);
+        } catch (err) {
+          console.warn('Error al persistir conteo en BD:', err);
+        }
+      }
+
+      const resTxt = $('resultadoTexto');
+      if (resTxt) {
+        resTxt.innerText = diferencia > 0 ? `+${diferencia} (Sobrante)` : diferencia < 0 ? `${diferencia} (Faltante)` : '0 (Exacto)';
+        resTxt.style.color = diferencia === 0 ? '#10b981' : diferencia < 0 ? '#ef4444' : '#f59e0b';
+      }
+
+      setVal('codigoInput', '');
+      setVal('conteoFisico', '');
+      window.productoActual = null;
+      $('codigoInput')?.focus();
+
+      window.renderHistorial();
+      window.renderInventario();
+      window.actualizarKPIs();
+
+      notificar(`Conteo registrado para "${itemActualizado.codigo}": ${estado} (${diferencia})`, 'success');
+
+    } catch (err) {
+      console.error('Error registrando conteo:', err);
+    } finally {
+      guardandoConteoActivo = false;
+      if (btnGuardar) btnGuardar.disabled = false;
     }
-
-    $('resultadoTexto').innerText = diferencia > 0 ? `+${diferencia} (Sobrante)` : diferencia < 0 ? `${diferencia} (Faltante)` : '0 (Exacto)';
-    $('resultadoTexto').style.color = diferencia === 0 ? '#10b981' : diferencia < 0 ? '#ef4444' : '#f59e0b';
-
-    setVal('codigoInput', '');
-    setVal('conteoFisico', '');
-    window.productoActual = null;
-    $('codigoInput').focus();
-
-    window.renderHistorial();
-    window.renderInventario();
-    window.actualizarKPIs();
-    notificar(`Conteo registrado para "${itemActualizado.codigo}": ${estado} (${diferencia})`, 'success');
   }
 
   // ==================================================================
-  // 4. REPORTAR NOVEDAD DE INVENTARIO
+  // 4. REPORTAR NOVEDADES DE INVENTARIO
   // ==================================================================
   window.abrirModalNovedad = function () {
     if (window.productoActual) {
@@ -411,8 +423,7 @@ async function leerExcel(e) {
   window.calcularDiferenciaNovedad = function () {
     const s = Number(getVal('novedadSistema')) || 0;
     const f = Number(getVal('novedadFisico')) || 0;
-    const d = f - s;
-    setVal('novedadDiferencia', d);
+    setVal('novedadDiferencia', f - s);
   };
 
   async function guardarNovedad() {
@@ -450,10 +461,6 @@ async function leerExcel(e) {
       }
     }
 
-    if (typeof window.crearNotificacion === 'function') {
-      window.crearNotificacion(`⚠️ Novedad reportada: ${codigo} - ${tipo} (${observacion})`, 'warning');
-    }
-
     window.cerrarModalNovedad();
     await window.cargarNovedadesBD();
     notificar('Novedad reportada exitosamente.', 'success');
@@ -464,7 +471,7 @@ async function leerExcel(e) {
     if (!body) return;
 
     if (!window.supabaseClient) {
-      body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px;">Sin conexión</td></tr>`;
+      body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px;">Sin conexión activa</td></tr>`;
       return;
     }
 
@@ -524,7 +531,7 @@ async function leerExcel(e) {
   };
 
   // ==================================================================
-  // 5. RENDERIZADO DE TABLAS Y KPIS (TOLERANTE A SCHEMAS)
+  // 5. RENDERIZADO DE TABLAS Y KPIS
   // ==================================================================
   window.renderInventario = function (datos = null) {
     const body = $('inventarioBody');
@@ -614,7 +621,7 @@ async function leerExcel(e) {
   };
 
   // ==================================================================
-  // 6. EXPORTACIÓN Y REINICIO
+  // 6. EXPORTACIÓN Y VACIADO PROTEGIDO
   // ==================================================================
   function exportarExcel() {
     if (window.inventarioCache.length === 0) {
@@ -641,25 +648,71 @@ async function leerExcel(e) {
   }
 
   async function reiniciarInventario() {
+    if (reinicioEnProgreso) return;
+
     if (typeof window.tienePermiso === 'function' && !window.tienePermiso('inventario', 'eliminar')) {
-      notificar('No cuenta con permisos para reiniciar el inventario.');
+      notificar('No cuenta con permisos para reiniciar el inventario.', 'error');
       return;
     }
 
-    if (!confirm('¿Desea vaciar y reiniciar todos los registros del inventario cargado?')) return;
+    const confirmado = window.confirm('¿Desea vaciar y reiniciar todos los registros del inventario cargado?');
+    if (!confirmado) return;
 
-    if (window.supabaseClient) {
-      await window.supabaseClient.from('inventario').delete().neq('id', 0);
+    const btnVaciar = $('reiniciarInventario');
+
+    try {
+      reinicioEnProgreso = true;
+      if (btnVaciar) {
+        btnVaciar.disabled = true;
+        btnVaciar.innerText = '⏳ Vaciando...';
+      }
+
+      // Borrado por código para evitar inconsistencias con columnas autoincrementales
+      if (window.supabaseClient) {
+        const { error } = await window.supabaseClient
+          .from('inventario')
+          .delete()
+          .neq('codigo', '');
+
+        if (error) {
+          console.warn('Advertencia en borrado Supabase:', error.message);
+        }
+      }
+
+      window.inventarioCache = [];
+      window.historialConteos = [];
+      window.productoActual = null;
+      localStorage.removeItem('inventario');
+
+      setVal('codigoInput', '');
+      setVal('conteoFisico', '');
+      setVal('codigoProducto', '-');
+      setVal('nombreProducto', '-');
+      setVal('ubicacionProducto', '-');
+      setVal('stockProducto', '-');
+
+      const resTxt = $('resultadoTexto');
+      if (resTxt) {
+        resTxt.innerText = '-';
+        resTxt.style.color = '#64748b';
+      }
+
+      window.renderInventario();
+      window.renderHistorial();
+      window.actualizarKPIs();
+
+      notificar('Inventario e historial vaciados con éxito.', 'success');
+
+    } catch (err) {
+      console.error('Error durante el reinicio del inventario:', err);
+      notificar('Ocurrió un error al intentar vaciar el inventario.', 'error');
+    } finally {
+      reinicioEnProgreso = false;
+      if (btnVaciar) {
+        btnVaciar.disabled = false;
+        btnVaciar.innerText = '🗑️ Vaciar Inventario Cargado';
+      }
     }
-
-    window.inventarioCache = [];
-    window.historialConteos = [];
-    localStorage.removeItem('inventario');
-
-    window.renderInventario();
-    window.renderHistorial();
-    window.actualizarKPIs();
-    notificar('Inventario reiniciado exitosamente.', 'success');
   }
 
   window.abrirSiesa = function () {
@@ -667,61 +720,70 @@ async function leerExcel(e) {
   };
 
   // ==================================================================
-  // 7. LISTENERS Y EVENTOS
+  // 7. LISTENERS CON REGISTRO ÚNICO (PREVENCIÓN DE DUPLICADOS EN SPA)
   // ==================================================================
-  document.addEventListener('input', function (e) {
-    if (e.target && e.target.id === 'buscadorInventario') {
-      const q = e.target.value.toLowerCase().trim();
-      if (!q) {
-        window.renderInventario();
-        return;
+  if (!window._inventarioListenersInicializados) {
+    window._inventarioListenersInicializados = true;
+
+    document.addEventListener('input', function (e) {
+      if (e.target && e.target.id === 'buscadorInventario') {
+        const q = e.target.value.toLowerCase().trim();
+        if (!q) {
+          window.renderInventario();
+          return;
+        }
+        const filtrados = (window.inventarioCache || []).filter(p =>
+          String(p.codigo || '').toLowerCase().includes(q) ||
+          String(p.producto || p.descripcion || '').toLowerCase().includes(q) ||
+          String(p.ubicacion || '').toLowerCase().includes(q)
+        );
+        window.renderInventario(filtrados);
       }
-      const filtrados = window.inventarioCache.filter(p =>
-        String(p.codigo || '').toLowerCase().includes(q) ||
-        String(p.producto || p.descripcion || '').toLowerCase().includes(q) ||
-        String(p.ubicacion || '').toLowerCase().includes(q)
-      );
-      window.renderInventario(filtrados);
-    }
-  });
+    });
 
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && e.target && (e.target.id === 'codigoInput' || e.target.id === 'conteoFisico')) {
-      e.preventDefault();
-      if (e.target.id === 'codigoInput') buscarProducto();
-      else if (e.target.id === 'conteoFisico') registrarConteo();
-    }
-  });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && e.target) {
+        if (e.target.id === 'codigoInput') {
+          e.preventDefault();
+          buscarProducto();
+        } else if (e.target.id === 'conteoFisico') {
+          e.preventDefault();
+          registrarConteo();
+        }
+      }
+    });
 
-  document.addEventListener('click', function (e) {
-    if (e.target && e.target.id === 'buscarBtn') {
-      e.preventDefault();
-      buscarProducto();
-    }
-    if (e.target && e.target.id === 'guardarConteo') {
-      e.preventDefault();
-      registrarConteo();
-    }
-    if (e.target && e.target.id === 'exportarExcel') {
-      e.preventDefault();
-      exportarExcel();
-    }
-    if (e.target && e.target.id === 'reiniciarInventario') {
-      e.preventDefault();
-      reiniciarInventario();
-    }
-    if (e.target && e.target.id === 'guardarNovedadBtn') {
-      e.preventDefault();
-      guardarNovedad();
-    }
-  });
+    document.addEventListener('click', function (e) {
+      if (e.target && e.target.closest('#buscarBtn')) {
+        e.preventDefault();
+        buscarProducto();
+      }
+      if (e.target && e.target.closest('#guardarConteo')) {
+        e.preventDefault();
+        registrarConteo();
+      }
+      if (e.target && e.target.closest('#exportarExcel')) {
+        e.preventDefault();
+        exportarExcel();
+      }
+      if (e.target && e.target.closest('#reiniciarInventario')) {
+        e.preventDefault();
+        reiniciarInventario();
+      }
+      if (e.target && e.target.closest('#guardarNovedadBtn')) {
+        e.preventDefault();
+        guardarNovedad();
+      }
+    });
+  }
 
+  // Asignación limpia del selector de archivo Excel
   const fileInp = $('excelFile');
   if (fileInp) {
     fileInp.onchange = leerExcel;
   }
 
-  // Inicialización
+  // Inicialización de la vista
   window.cargarInventarioBD();
   window.renderHistorial();
 })();
