@@ -1,18 +1,20 @@
 /**
  * ====================================================================
- * RECEPCION.JS — Módulo de Recepción & Devoluciones Pro
+ * RECEPCION.JS — Módulo de Recepción & Devoluciones (Versión Protegida)
  * ====================================================================
  */
 
 (function () {
   'use strict';
 
+  // 1. Limpieza de intervalos previos
   if (window.refreshRecepcionInterval) {
     clearInterval(window.refreshRecepcionInterval);
   }
 
-  // Estado del Módulo
+  // 2. Estado local y banderas contra duplicados
   let soportesSeleccionados = [];
+  let guardandoOperacionActiva = false;
   window.recepcionesCacheDatos = [];
   window.recepcionGestionando = null;
   window.recepcionSoportesModalId = null;
@@ -51,7 +53,7 @@
   }
 
   // ==================================================================
-  // 1. GESTIÓN DE MODALES
+  // MODALES
   // ==================================================================
   window.abrirModal = function (id) {
     const m = $(id);
@@ -74,12 +76,11 @@
   window.cerrarModalSoportesRecepcion = () => window.cerrarModal('modalSoportesRecepcion');
 
   // ==================================================================
-  // 2. INTERRUPTOR DE FLUJO (3 MODOS)
+  // CAMBIO DE FLUJO (RECEPCIÓN / DEV. PROVEEDOR / DEV. PROYECTOS)
   // ==================================================================
   window.cambiarModo = function (modo) {
     setVal('tipoOperacionInput', modo);
 
-    // Actualizar botones de selector
     document.querySelectorAll('.btn-flujo').forEach(b => b.classList.remove('active'));
 
     const seccRec = document.querySelectorAll('.seccion-recepcion');
@@ -89,6 +90,8 @@
     seccRec.forEach(e => e.style.display = 'none');
     seccDevProv.forEach(e => e.style.display = 'none');
     seccDevProy.forEach(e => e.style.display = 'none');
+
+    const selectEstado = $('estadoOperacionInput');
 
     if (modo === 'Recepcion') {
       $('btnModoRecepcion')?.classList.add('active');
@@ -101,6 +104,7 @@
       $('origenInput').placeholder = 'Nombre de la empresa proveedora';
       $('labelCantidad').innerText = 'CANTIDAD TOTAL RECIBIDA';
       $('txtBtnSubmit').innerText = 'Guardar Recepción';
+      if (selectEstado) selectEstado.value = 'Conforme';
 
     } else if (modo === 'DevolucionProv') {
       $('btnModoDevolucionProv')?.classList.add('active');
@@ -113,6 +117,7 @@
       $('origenInput').placeholder = 'Proveedor al que se retorna el material';
       $('labelCantidad').innerText = 'CANTIDAD A DEVOLVER';
       $('txtBtnSubmit').innerText = 'Registrar Devolución a Proveedor';
+      if (selectEstado) selectEstado.value = 'Dañado';
 
     } else if (modo === 'DevolucionProy') {
       $('btnModoDevolucionProy')?.classList.add('active');
@@ -125,11 +130,12 @@
       $('origenInput').placeholder = 'Nombre de la obra, contrato o liniero';
       $('labelCantidad').innerText = 'CANTIDAD REINTEGRADA';
       $('txtBtnSubmit').innerText = 'Registrar Reintegro de Obra';
+      if (selectEstado) selectEstado.value = 'Conforme';
     }
   };
 
   // ==================================================================
-  // 3. GESTIÓN DE ADJUNTOS
+  // ADJUNTOS
   // ==================================================================
   function totalSoportes() {
     return soportesSeleccionados.length;
@@ -142,7 +148,6 @@
         notificar(`Límite alcanzado: Máximo ${max} soportes.`);
         break;
       }
-
       soportesSeleccionados.push({
         tipo: 'archivo',
         archivo: archivo,
@@ -229,9 +234,11 @@
   }
 
   // ==================================================================
-  // 4. PERSISTENCIA EN SUPABASE
+  // GUARDADO EN SUPABASE (BLOQUEO CONTRA DOBLE CLIC)
   // ==================================================================
   async function guardarOperacion() {
+    if (guardandoOperacionActiva) return;
+
     const btn = $('guardarOperacionBtn');
     try {
       const modo = getVal('tipoOperacionInput') || 'Recepcion';
@@ -245,6 +252,9 @@
         notificar('Complete los campos obligatorios: Origen/Proveedor, Material y Cantidad.');
         return;
       }
+
+      guardandoOperacionActiva = true;
+      if (btn) btn.disabled = true;
 
       let tipoRecepcion = '';
       let revisadas = 0;
@@ -265,15 +275,12 @@
         tipoRecepcion = `Reintegro Proyecto: ${getVal('motivoProyInput')}`;
       }
 
-      if (btn) btn.disabled = true;
-
       let pdfUrl = '[]';
       try {
         const subidos = await subirSoportesStorage();
         pdfUrl = JSON.stringify(subidos);
       } catch (err) {
         notificar(err.message, 'error');
-        if (btn) btn.disabled = false;
         return;
       }
 
@@ -290,7 +297,7 @@
         porcentaje_revisado: pct,
         observacion: observacion,
         comentario_validacion: '',
-        seguimiento: `Registro creado por: ${usuario} (${modo})`,
+        seguimiento: `Registro inicial por: ${usuario} (${modo})`,
         estado: estado,
         novedad_original: estado,
         pdf_url: pdfUrl,
@@ -312,8 +319,9 @@
       await window.actualizarKPIsRecepcion();
 
     } catch (e) {
-      console.error(e);
+      console.error('Excepción al registrar operación:', e);
     } finally {
+      guardandoOperacionActiva = false;
       if (btn) btn.disabled = false;
     }
   }
@@ -337,7 +345,7 @@
   }
 
   // ==================================================================
-  // 5. RENDERIZADO DE LAS 3 TABLAS
+  // RENDERIZADO DE TABLAS
   // ==================================================================
   window.renderRecepciones = async function (datos = null) {
     const bodyRec = $('recepcionesBody');
@@ -360,7 +368,6 @@
         lista = window.recepcionesCacheDatos || [];
       }
 
-      // Clasificación de registros
       const recepciones = lista.filter(i => 
         !String(i.tipo_recepcion || '').startsWith('Devolución') && 
         !String(i.tipo_recepcion || '').startsWith('Reintegro')
@@ -376,7 +383,7 @@
 
       // Tabla 1: Recepciones
       if (recepciones.length === 0) {
-        bodyRec.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:26px;color:#64748b;">No hay recepciones de compras registradas.</td></tr>`;
+        bodyRec.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:26px;color:#64748b;">No hay recepciones de compras registradas.</td></tr>`;
       } else {
         bodyRec.innerHTML = recepciones.map(item => `
           <tr>
@@ -488,7 +495,7 @@
   }
 
   // ==================================================================
-  // 6. ACCIONES: OBSERVACIÓN, SOPORTES, SEGUIMIENTO Y ELIMINACIÓN
+  // ACCIONES INDIVIDUALES
   // ==================================================================
   window.verObservacion = function (id) {
     const item = window.recepcionesCacheDatos.find(i => i.id === Number(id));
@@ -588,7 +595,7 @@
   };
 
   // ==================================================================
-  // 7. KPIS CON DEVOLUCIONES DE PROVEEDORES Y PROYECTOS
+  // ACTUALIZACIÓN DE KPIS
   // ==================================================================
   window.actualizarKPIsRecepcion = async function () {
     try {
@@ -630,32 +637,54 @@
   };
 
   // ==================================================================
-  // 8. LISTENERS CON REGISTRO ÚNICO
+  // ASIGNACIÓN ÚNICA DE LISTENERS (PREVENCIÓN DE DUPLICADOS EN SPA)
   // ==================================================================
-  document.addEventListener('click', function (e) {
-    // Cambio de pestañas
-    const tabBtn = e.target.closest('.rec-tab-btn');
-    if (tabBtn) {
-      const target = tabBtn.dataset.tab;
-      document.querySelectorAll('.rec-tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.rec-tab-content').forEach(c => c.classList.remove('active'));
+  if (!window._recepcionListenersInicializados) {
+    window._recepcionListenersInicializados = true;
 
-      tabBtn.classList.add('active');
-      const panel = $(target);
-      if (panel) panel.classList.add('active');
-    }
+    document.addEventListener('click', function (e) {
+      // Cambio de pestañas
+      const tabBtn = e.target.closest('.rec-tab-btn');
+      if (tabBtn) {
+        const target = tabBtn.dataset.tab;
+        document.querySelectorAll('.rec-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.rec-tab-content').forEach(c => c.classList.remove('active'));
 
-    if (e.target.closest('#btnAgregarDrive')) {
-      agregarDrive();
-    }
-    if (e.target.closest('#guardarOperacionBtn')) {
-      guardarOperacion();
-    }
-    if (e.target.closest('#guardarGestionBtn')) {
-      guardarSeguimiento();
-    }
-  });
+        tabBtn.classList.add('active');
+        const panel = $(target);
+        if (panel) panel.classList.add('active');
+      }
 
+      if (e.target.closest('#btnAgregarDrive')) {
+        agregarDrive();
+      }
+      if (e.target.closest('#guardarOperacionBtn')) {
+        guardarOperacion();
+      }
+      if (e.target.closest('#guardarGestionBtn')) {
+        guardarSeguimiento();
+      }
+    });
+
+    document.addEventListener('input', function (e) {
+      if (e.target && e.target.id === 'buscadorRecepcion') {
+        const q = e.target.value.toLowerCase().trim();
+        if (!q) {
+          window.renderRecepciones(window.recepcionesCacheDatos);
+          return;
+        }
+        const filtrados = (window.recepcionesCacheDatos || []).filter(i =>
+          String(i.proveedor || '').toLowerCase().includes(q) ||
+          String(i.material || '').toLowerCase().includes(q) ||
+          String(i.tipo_recepcion || '').toLowerCase().includes(q) ||
+          String(i.estado || '').toLowerCase().includes(q)
+        );
+        window.renderRecepciones(filtrados);
+      }
+    });
+  }
+
+  // Selector de archivo individual
   const fileInput = $('archivoInput');
   if (fileInput) {
     fileInput.onchange = ev => {
@@ -663,23 +692,6 @@
       ev.target.value = '';
     };
   }
-
-  document.addEventListener('input', function (e) {
-    if (e.target && e.target.id === 'buscadorRecepcion') {
-      const q = e.target.value.toLowerCase().trim();
-      if (!q) {
-        window.renderRecepciones(window.recepcionesCacheDatos);
-        return;
-      }
-      const filtrados = (window.recepcionesCacheDatos || []).filter(i =>
-        String(i.proveedor || '').toLowerCase().includes(q) ||
-        String(i.material || '').toLowerCase().includes(q) ||
-        String(i.tipo_recepcion || '').toLowerCase().includes(q) ||
-        String(i.estado || '').toLowerCase().includes(q)
-      );
-      window.renderRecepciones(filtrados);
-    }
-  });
 
   // Inicialización de la pantalla
   window.renderRecepciones();
