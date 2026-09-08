@@ -53,133 +53,214 @@
   }
 
   // ==================================================================
-  // 1. CARGA Y SINCRONIZACIÓN DE INVENTARIO (SUPABASE)
-  // ==================================================================
-  window.cargarInventarioBD = async function () {
-    if (!window.supabaseClient) {
-      window.inventarioCache = JSON.parse(localStorage.getItem('inventario')) || [];
+// 1. CARGA Y SINCRONIZACIÓN DE INVENTARIO (CON RESPALDO SEGURO)
+// ==================================================================
+window.cargarInventarioBD = async function () {
+  // 1. Recuperar de inmediato la copia local para evitar pérdida visual al cambiar de módulo
+  const copiaLocal = localStorage.getItem('inventario');
+  if (copiaLocal) {
+    try {
+      window.inventarioCache = JSON.parse(copiaLocal) || [];
       window.renderInventario();
       window.actualizarKPIs();
-      return;
+    } catch (e) {
+      console.warn('Error leyendo respaldo local:', e);
     }
+  }
 
-    try {
-      const TAMANO_PAGINA = 1000;
-      let desde = 0;
-      let todos = [];
+  // 2. Si no hay cliente de base de datos, finaliza conservando lo local
+  if (!window.supabaseClient) {
+    return;
+  }
 
-      while (true) {
-        const { data, error } = await window.supabaseClient
-          .from('inventario')
-          .select('*')
-          .order('codigo')
-          .range(desde, desde + TAMANO_PAGINA - 1);
+  // 3. Consultar la base de datos de manera incremental
+  try {
+    const TAMANO_PAGINA = 1000;
+    let desde = 0;
+    let todos = [];
 
-        if (error) {
-          console.error('Error cargando inventario:', error.message);
-          break;
-        }
+    while (true) {
+      const { data, error } = await window.supabaseClient
+        .from('inventario')
+        .select('codigo, producto, ubicacion, stock_sistema, conteo_fisico, diferencia, estado')
+        .order('codigo')
+        .range(desde, desde + TAMANO_PAGINA - 1);
 
-        if (!data || data.length === 0) break;
-        todos = todos.concat(data);
-        if (data.length < TAMANO_PAGINA) break;
-        desde += TAMANO_PAGINA;
+      if (error) {
+        console.error('Error cargando inventario desde Supabase:', error.message);
+        break;
       }
 
+      if (!data || data.length === 0) break;
+      todos = todos.concat(data);
+      if (data.length < TAMANO_PAGINA) break;
+      desde += TAMANO_PAGINA;
+    }
+
+    // Si la base de datos devolvió datos, sincronizamos la vista y el almacenamiento local
+    if (todos.length > 0) {
       window.inventarioCache = todos;
       localStorage.setItem('inventario', JSON.stringify(todos));
       window.renderInventario();
       window.actualizarKPIs();
-      await window.cargarNovedadesBD();
-    } catch (err) {
-      console.error('Excepción en cargarInventarioBD:', err);
     }
-  };
 
-  // ==================================================================
-  // 2. LECTURA Y CARGA DE EXCEL
-  // ==================================================================
-  async function leerExcel(e) {
-    try {
-      if (typeof window.tienePermiso === 'function' && !window.tienePermiso('inventario', 'crear')) {
-        notificar('Acceso denegado: No cuenta con permisos para cargar inventarios.');
-        return;
-      }
+    await window.cargarNovedadesBD();
+  } catch (err) {
+    console.error('Excepción al cargar inventario:', err);
+  }
+};
 
-      const file = e.target.files[0];
-      if (!file) return;
+// ==================================================================
+// 2. DETECCIÓN AUTOMÁTICA Y EXTRACCIÓN ESTRICTA DE LAS 4 COLUMNAS
+// ==================================================================
+function normalizarLlave(texto) {
+  return String(texto || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Elimina tildes
+    .replace(/[^a-z0-9]/g, '');      // Conserva solo alfanuméricos
+}
 
-      const reader = new FileReader();
-      reader.onload = async function (event) {
-        try {
-          const data = new Uint8Array(event.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+function mapearFilaExcel(fila) {
+  let codigo = '';
+  let producto = '';
+  let ubicacion = 'Principal';
+  let stockSistema = 0;
 
-          if (!json || json.length === 0) {
-            notificar('El archivo Excel está vacío o no tiene el formato esperado.');
-            return;
-          }
+  const entradas = Object.entries(fila);
 
-          const normalizados = json.map(item => {
-            const codigo = String(item.Codigo || item.CODIGO || item.codigo || item.Referencia || item.REFERENCIA || item.Item || item.ITEM || '').trim();
-            const producto = String(item.Producto || item.PRODUCTO || item.producto || item.Descripcion || item.DESCRIPCION || item.Material || item.MATERIAL || '').trim();
-            const ubicacion = String(item.Ubicacion || item.UBICACION || item.ubicacion || item.Bodega || item.BODEGA || 'Principal').trim();
-            const stock = extraerStock(item);
+  for (const [llaveOriginal, valor] of entradas) {
+    const k = normalizarLlave(llaveOriginal);
+    const valLimpio = String(valor ?? '').trim();
 
-            return {
-              codigo,
-              producto: producto || codigo,
-              ubicacion,
-              stock_sistema: stock,
-              conteo_fisico: null,
-              diferencia: null,
-              estado: 'Pendiente',
-              usuario: window.usuarioLogueado?.usuario || 'Sistema'
-            };
-          }).filter(i => i.codigo);
+    // 1. Detección de CÓDIGO
+    if (!codigo && (k.includes('codigo') || k === 'cod' || k.includes('referencia') || k.includes('ref') || k === 'item' || k === 'id')) {
+      codigo = valLimpio;
+      continue;
+    }
 
-          if (normalizados.length === 0) {
-            notificar('No se detectaron columnas válidas (Código, Producto, Stock).');
-            return;
-          }
+    // 2. Detección de PRODUCTO / REFERENCIA
+    if (!producto && (k.includes('producto') || k.includes('descripcion') || k.includes('desc') || k.includes('articulo') || k.includes('material') || k.includes('nombre'))) {
+      producto = valLimpio;
+      continue;
+    }
 
-          if (window.supabaseClient) {
-            const LOTE = 200;
-            for (let i = 0; i < normalizados.length; i += LOTE) {
-              const chunk = normalizados.slice(i, i + LOTE);
-              await window.supabaseClient.from('inventario').upsert(chunk, { onConflict: 'codigo' });
-            }
-          }
+    // 3. Detección de UBICACIÓN
+    if (ubicacion === 'Principal' && (k.includes('ubicacion') || k.includes('ubi') || k.includes('bodega') || k.includes('estante') || k.includes('rack') || k.includes('seccion'))) {
+      if (valLimpio) ubicacion = valLimpio;
+      continue;
+    }
 
-          window.inventarioCache = normalizados;
-          localStorage.setItem('inventario', JSON.stringify(normalizados));
-
-          if (typeof window.guardarHistorial === 'function') {
-            await window.guardarHistorial('CARGA_EXCEL', 'INVENTARIO', `Carga de archivo Excel con ${normalizados.length} productos`);
-          }
-
-          if (typeof window.crearNotificacion === 'function') {
-            window.crearNotificacion(`📦 Inventario cargado exitosamente: ${normalizados.length} productos listos para conteo.`, 'success');
-          }
-
-          window.renderInventario();
-          window.actualizarKPIs();
-          notificar(`Se cargaron ${normalizados.length} productos con éxito.`, 'success');
-
-        } catch (err) {
-          console.error('Error procesando Excel:', err);
-          notificar('Error al procesar la estructura del Excel.', 'error');
-        }
-      };
-
-      reader.readAsArrayBuffer(file);
-    } catch (e) {
-      console.error(e);
+    // 4. Detección de STOCK SISTEMA
+    if (stockSistema === 0 && (k.includes('stock') || k.includes('sistema') || k.includes('saldo') || k.includes('cantidad') || k.includes('cant') || k.includes('existencia') || k.includes('teorico'))) {
+      const parsed = parseFloat(String(valor).replace(/,/g, '.'));
+      stockSistema = isNaN(parsed) ? 0 : parsed;
+      continue;
     }
   }
+
+  if (!codigo) return null;
+
+  // Objeto estructurado exclusivamente con las 4 columnas objetivo
+  return {
+    codigo: codigo,
+    producto: producto || codigo,
+    ubicacion: ubicacion,
+    stock_sistema: stockSistema,
+    conteo_fisico: null,
+    diferencia: null,
+    estado: 'Pendiente',
+    usuario: window.usuarioLogueado?.usuario || 'Sistema'
+  };
+}
+
+async function leerExcel(e) {
+  try {
+    if (typeof window.tienePermiso === 'function' && !window.tienePermiso('inventario', 'crear')) {
+      notificar('Acceso denegado: No cuenta con permisos para cargar inventarios.');
+      return;
+    }
+
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async function (event) {
+      try {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+        if (!json || json.length === 0) {
+          notificar('El archivo Excel se encuentra vacío.', 'error');
+          return;
+        }
+
+        // Filtrar y mapear únicamente las columnas seleccionadas
+        const filtrados = [];
+        for (const fila of json) {
+          const item = mapearFilaExcel(fila);
+          if (item && item.codigo) {
+            filtrados.push(item);
+          }
+        }
+
+        if (filtrados.length === 0) {
+          notificar('No se pudo identificar la columna de Código en el Excel.', 'error');
+          return;
+        }
+
+        // 1. Guardar de forma inmediata en el estado de la aplicación y localStorage
+        window.inventarioCache = filtrados;
+        localStorage.setItem('inventario', JSON.stringify(filtrados));
+
+        // 2. Renderizar visualmente al instante
+        window.renderInventario();
+        window.actualizarKPIs();
+
+        // 3. Subir en segundo plano a Supabase por lotes
+        if (window.supabaseClient) {
+          try {
+            const LOTE = 200;
+            for (let i = 0; i < filtrados.length; i += LOTE) {
+              const chunk = filtrados.slice(i, i + LOTE);
+              const { error: upsertErr } = await window.supabaseClient
+                .from('inventario')
+                .upsert(chunk, { onConflict: 'codigo' });
+
+              if (upsertErr) {
+                console.warn('Advertencia en upsert Supabase:', upsertErr.message);
+              }
+            }
+          } catch (dbErr) {
+            console.warn('No se pudo sincronizar en la nube, pero se guardó en local:', dbErr);
+          }
+        }
+
+        if (typeof window.guardarHistorial === 'function') {
+          await window.guardarHistorial('CARGA_EXCEL', 'INVENTARIO', `Se importaron ${filtrados.length} referencias procesadas.`);
+        }
+
+        notificar(`Se procesaron ${filtrados.length} productos correctamente.`, 'success');
+
+      } catch (err) {
+        console.error('Error procesando el archivo Excel:', err);
+        notificar('Error al procesar el archivo Excel.', 'error');
+      } finally {
+        // Limpiar el input para permitir recargar el mismo archivo si es necesario
+        e.target.value = '';
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  } catch (e) {
+    console.error('Excepción general en lectura de Excel:', e);
+  }
+}
 
   // ==================================================================
   // 3. BUSCADOR Y REGISTRO DE CONTEO FÍSICO
