@@ -72,11 +72,13 @@
   function closeModal(modal) {
     if (!modal) return;
 
-    if (!closeByModuleContract(modal)) {
-      modal.classList.remove('active', 'open', 'show', 'is-open');
-      modal.style.display = 'none';
-      modal.setAttribute('aria-hidden', 'true');
-    }
+    // Ejecuta primero el contrato propio del módulo para respetar su limpieza interna.
+    closeByModuleContract(modal);
+
+    // Garantía final: el overlay no puede quedar visible por un handler heredado incompleto.
+    modal.classList.remove('active', 'open', 'show', 'is-open');
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
 
     const focused = document.activeElement;
     if (focused && modal.contains(focused) && typeof focused.blur === 'function') {
