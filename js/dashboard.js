@@ -331,6 +331,42 @@
   }
 
   // ==================================================================
+  // 7.1 RESPALDO DE SINCRONIZACIÓN PARA RECEPCIONES EXTERNAS (CRM)
+  // ==================================================================
+  function inicializarRespaldoRecepcionExterna() {
+    if (window._recepcionRefreshFallbackIniciado) return;
+    window._recepcionRefreshFallbackIniciado = true;
+
+    const refrescarRecepcionSiActiva = async function () {
+      const tablaRecepcion = document.getElementById('recepcionesBody');
+      if (!tablaRecepcion || document.visibilityState !== 'visible') return;
+
+      const buscador = document.getElementById('buscarRecepcion');
+      if (buscador && buscador.value.trim()) return;
+
+      try {
+        if (typeof window.renderRecepciones === 'function') {
+          await window.renderRecepciones();
+        }
+        if (typeof window.actualizarKPIsRecepcion === 'function') {
+          await window.actualizarKPIsRecepcion();
+        }
+      } catch (e) {
+        console.warn('Error refrescando Recepción desde cambios externos:', e);
+      }
+    };
+
+    window.addEventListener('focus', refrescarRecepcionSiActiva);
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') {
+        refrescarRecepcionSiActiva();
+      }
+    });
+
+    window._recepcionRefreshFallbackInterval = setInterval(refrescarRecepcionSiActiva, 10000);
+  }
+
+  // ==================================================================
   // 8. SLIDESHOW HERO DASHBOARD
   // ==================================================================
   window.slideActual = 0;
@@ -396,5 +432,6 @@
   cargarPermisosUsuario();
   cargarKPIsDashboard();
   inicializarRealtimeGlobal();
+  inicializarRespaldoRecepcionExterna();
   window.iniciarSlider();
 })();
