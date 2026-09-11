@@ -23,6 +23,56 @@
     </div>
   </header>
 
+  <!-- CRM SUMINISTROS · OPERACIÓN VIVA -->
+  <section class="bi-crm-live" id="crmSuministrosPanel">
+    <header class="bi-crm-live-head">
+      <div>
+        <span class="bi-crm-live-chip"><i></i> CONEXIÓN EN VIVO</span>
+        <h3>CRM Suministros · Recepción de mercancía</h3>
+        <p>Indicadores agregados del CRM. Esta vista no expone clientes, usuarios, documentos ni registros individuales.</p>
+      </div>
+      <div class="bi-crm-live-controls">
+        <label>Desde<input type="date" id="crmMetricsFrom"></label>
+        <label>Hasta<input type="date" id="crmMetricsTo"></label>
+        <button type="button" id="crmMetricsRefresh" class="btn-bi-primary">↻ Actualizar</button>
+      </div>
+    </header>
+
+    <div class="bi-crm-status" id="crmMetricsStatus">Conectando con CRM Suministros…</div>
+
+    <div class="bi-crm-kpis">
+      <article><small>Recepciones</small><strong id="crmKpiReceipts">—</strong><span>En el periodo</span></article>
+      <article><small>Con novedad</small><strong id="crmKpiNovelties">—</strong><span>Auditorías potenciales</span></article>
+      <article><small>Tasa de novedad</small><strong id="crmKpiNoveltyRate">—</strong><span>Sobre recepciones</span></article>
+      <article><small>Cantidad aceptada</small><strong id="crmKpiAccepted">—</strong><span>Ingreso conforme</span></article>
+      <article><small>Cantidad rechazada</small><strong id="crmKpiRejected">—</strong><span>No conformidad</span></article>
+    </div>
+
+    <div class="bi-crm-charts">
+      <article class="bi-card">
+        <div class="bi-card-head-simple">
+          <span class="bi-section-icon">📈</span>
+          <div><h3>Evolución diaria</h3><span class="bi-subtitle">Recepciones y novedades registradas en CRM</span></div>
+        </div>
+        <div class="bi-crm-chart"><canvas id="crmTrendChart"></canvas></div>
+      </article>
+      <article class="bi-card">
+        <div class="bi-card-head-simple">
+          <span class="bi-section-icon">⚠️</span>
+          <div><h3>Tipos de novedad</h3><span class="bi-subtitle">Distribución operativa del periodo</span></div>
+        </div>
+        <div class="bi-crm-chart"><canvas id="crmNoveltyTypeChart"></canvas></div>
+      </article>
+      <article class="bi-card">
+        <div class="bi-card-head-simple">
+          <span class="bi-section-icon">◆</span>
+          <div><h3>Severidad</h3><span class="bi-subtitle">Clasificación de las recepciones auditables</span></div>
+        </div>
+        <div class="bi-crm-chart"><canvas id="crmSeverityChart"></canvas></div>
+      </article>
+    </div>
+  </section>
+
   <!-- PANEL DE CARGA DRAG & DROP -->
   <section class="bi-card bi-upload-card" id="biDropZone">
     <div class="upload-dropzone">

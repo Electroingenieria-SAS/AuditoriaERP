@@ -22,6 +22,9 @@
       RECEPCIONES: 'recepciones-pdf',
       AUDITORIAS: 'auditorias'
     },
+    CRM_SUMINISTROS: {
+      METRICS_URL: runtimeEnv.CRM_SUMINISTROS_METRICS_URL || 'https://hezjxcxxcjlpmyalftam.supabase.co/functions/v1/erp-auditoria-metrics'
+    },
     RATE_LIMIT: {
       MAX_LOGIN_ATTEMPTS: 5,
       LOCKOUT_DURATION_MS: 60000 // 1 minuto
@@ -31,4 +34,3 @@
 
   window.ERP_CONFIG = Object.freeze(CONFIG);
 })();
-
