@@ -363,7 +363,7 @@
 
     const btnGuardar = $('guardarConteo');
     try {
-      guardandoOperacionActiva = true;
+      guardandoConteoActivo = true;
       if (btnGuardar) btnGuardar.disabled = true;
 
       const conteoFisico = Number(valorFisico);
