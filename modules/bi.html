@@ -50,15 +50,24 @@
 
     <div class="bi-crm-charts">
       <article class="bi-card">
-        <div class="bi-card-head-simple"><span class="bi-section-icon">📈</span><div><h3>Evolución diaria</h3><span class="bi-subtitle">Recepciones y novedades registradas en CRM</span></div></div>
+        <div class="bi-card-head-simple">
+          <span class="bi-section-icon">📈</span>
+          <div><h3>Evolución diaria</h3><span class="bi-subtitle">Recepciones y novedades registradas en CRM</span></div>
+        </div>
         <div class="bi-crm-chart"><canvas id="crmTrendChart"></canvas></div>
       </article>
       <article class="bi-card">
-        <div class="bi-card-head-simple"><span class="bi-section-icon">⚠️</span><div><h3>Tipos de novedad</h3><span class="bi-subtitle">Distribución operativa del periodo</span></div></div>
+        <div class="bi-card-head-simple">
+          <span class="bi-section-icon">⚠️</span>
+          <div><h3>Tipos de novedad</h3><span class="bi-subtitle">Distribución operativa del periodo</span></div>
+        </div>
         <div class="bi-crm-chart"><canvas id="crmNoveltyTypeChart"></canvas></div>
       </article>
       <article class="bi-card">
-        <div class="bi-card-head-simple"><span class="bi-section-icon">◆</span><div><h3>Severidad</h3><span class="bi-subtitle">Clasificación de las recepciones auditables</span></div></div>
+        <div class="bi-card-head-simple">
+          <span class="bi-section-icon">◆</span>
+          <div><h3>Severidad</h3><span class="bi-subtitle">Clasificación de las recepciones auditables</span></div>
+        </div>
         <div class="bi-crm-chart"><canvas id="crmSeverityChart"></canvas></div>
       </article>
     </div>
@@ -79,67 +88,162 @@
   <!-- KPIS PRINCIPALES -->
   <section class="bi-kpi-grid">
     <div class="bi-kpi-card">
-      <div class="bi-kpi-head"><span>📄 Registros Totales</span></div>
-      <h3 id="kpiRegistros">0</h3><small>Filas procesadas</small>
+      <div class="bi-kpi-head">
+        <span>📄 Registros Totales</span>
+      </div>
+      <h3 id="kpiRegistros">0</h3>
+      <small>Filas procesadas</small>
     </div>
+
     <div class="bi-kpi-card">
-      <div class="bi-kpi-head"><span>🔢 Total Métrica</span></div>
-      <h3 id="kpiTotal">0</h3><small>Suma agregada</small>
+      <div class="bi-kpi-head">
+        <span>🔢 Total Métrica</span>
+      </div>
+      <h3 id="kpiTotal">0</h3>
+      <small>Suma agregada</small>
     </div>
+
     <div class="bi-kpi-card">
-      <div class="bi-kpi-head"><span>📈 Promedio</span></div>
-      <h3 id="kpiPromedio">0</h3><small>Media aritmética</small>
+      <div class="bi-kpi-head">
+        <span>📈 Promedio</span>
+      </div>
+      <h3 id="kpiPromedio">0</h3>
+      <small>Media aritmética</small>
     </div>
+
     <div class="bi-kpi-card">
-      <div class="bi-kpi-head"><span>🏆 Valor Máximo</span></div>
-      <h3 id="kpiMaximo">0</h3><small>Pico más alto</small>
+      <div class="bi-kpi-head">
+        <span>🏆 Valor Máximo</span>
+      </div>
+      <h3 id="kpiMaximo">0</h3>
+      <small>Pico más alto</small>
     </div>
   </section>
 
   <!-- DASHBOARD GRID: GRÁFICOS Y FILTROS -->
   <div class="bi-dashboard-grid">
+
+    <!-- COLUMNA PRINCIPAL: GRÁFICOS -->
     <div class="bi-main-charts">
+
+      <!-- GRÁFICO PRINCIPAL -->
       <div class="bi-card">
         <div class="bi-card-head-flex">
-          <div class="bi-card-title-wrap"><span class="bi-section-icon">📊</span><div><h3>Distribución & Visualización Principal</h3><span class="bi-subtitle">Seleccione dimensiones, métricas y tipo de gráfico</span></div></div>
+          <div class="bi-card-title-wrap">
+            <span class="bi-section-icon">📊</span>
+            <div>
+              <h3>Distribución & Visualización Principal</h3>
+              <span class="bi-subtitle">Seleccione dimensiones, métricas y tipo de gráfico</span>
+            </div>
+          </div>
+
           <div class="bi-controls-toolbar">
-            <div class="bi-control-group"><label for="dimension">Dimensión (Eje X):</label><select id="dimension" class="bi-select"></select></div>
-            <div class="bi-control-group"><label for="metrica">Métrica (Eje Y):</label><select id="metrica" class="bi-select"></select></div>
-            <div class="bi-control-group"><label for="tipoGrafico">Tipo:</label><select id="tipoGrafico" class="bi-select"><option value="bar">Barras</option><option value="line">Líneas</option><option value="pie">Pastel</option><option value="doughnut">Dona</option></select></div>
-            <button id="btnGenerar" type="button" class="btn-bi-primary">⚡ Generar</button>
+            <div class="bi-control-group">
+              <label for="dimension">Dimensión (Eje X):</label>
+              <select id="dimension" class="bi-select"></select>
+            </div>
+
+            <div class="bi-control-group">
+              <label for="metrica">Métrica (Eje Y):</label>
+              <select id="metrica" class="bi-select"></select>
+            </div>
+
+            <div class="bi-control-group">
+              <label for="tipoGrafico">Tipo:</label>
+              <select id="tipoGrafico" class="bi-select">
+                <option value="bar">Barras</option>
+                <option value="line">Líneas</option>
+                <option value="pie">Pastel</option>
+                <option value="doughnut">Dona</option>
+              </select>
+            </div>
+
+            <button id="btnGenerar" type="button" class="btn-bi-primary">
+              ⚡ Generar
+            </button>
           </div>
         </div>
-        <div class="bi-chart-container-main"><canvas id="graficoPrincipal"></canvas></div>
+
+        <div class="bi-chart-container-main">
+          <canvas id="graficoPrincipal"></canvas>
+        </div>
       </div>
 
+      <!-- GRÁFICOS SECUNDARIOS (TOP 10 & TENDENCIAS) -->
       <div class="bi-secondary-grid">
         <div class="bi-card">
-          <div class="bi-card-head-simple"><span class="bi-section-icon">🏆</span><h3>Top 10 Elementos Destacados</h3></div>
-          <div class="bi-chart-container-secondary"><canvas id="graficoTop"></canvas></div>
+          <div class="bi-card-head-simple">
+            <span class="bi-section-icon">🏆</span>
+            <h3>Top 10 Elementos Destacados</h3>
+          </div>
+          <div class="bi-chart-container-secondary">
+            <canvas id="graficoTop"></canvas>
+          </div>
         </div>
+
         <div class="bi-card">
-          <div class="bi-card-head-simple"><span class="bi-section-icon">📉</span><h3>Tendencia & Evolución Temporal</h3></div>
-          <div class="bi-chart-container-secondary"><canvas id="graficoLinea"></canvas></div>
+          <div class="bi-card-head-simple">
+            <span class="bi-section-icon">📉</span>
+            <h3>Tendencia & Evolución Temporal</h3>
+          </div>
+          <div class="bi-chart-container-secondary">
+            <canvas id="graficoLinea"></canvas>
+          </div>
         </div>
       </div>
+
     </div>
 
+    <!-- COLUMNA LATERAL: PANEL DE FILTROS -->
     <aside class="bi-sidebar-filters">
       <div class="bi-card bi-filter-card">
-        <div class="bi-card-head-simple"><span class="bi-section-icon">🔍</span><h3>Filtros de Segmentación</h3></div>
+        <div class="bi-card-head-simple">
+          <span class="bi-section-icon">🔍</span>
+          <h3>Filtros de Segmentación</h3>
+        </div>
+
         <div class="bi-filter-body">
-          <div class="bi-form-field"><label for="filtroColumna1" id="labelFiltro1">Segmento Principal</label><select id="filtroColumna1" class="bi-select-full"><option value="">(Todos)</option></select></div>
-          <div class="bi-form-field"><label for="filtroColumna2" id="labelFiltro2">Segmento Secundario</label><select id="filtroColumna2" class="bi-select-full"><option value="">(Todos)</option></select></div>
-          <div class="bi-filter-actions"><button id="btnAplicar" type="button" class="btn-bi-filter-apply">✓ Aplicar Filtros</button><button id="btnResetFiltros" type="button" class="btn-bi-filter-reset">✕ Restablecer</button></div>
+          <div class="bi-form-field">
+            <label for="filtroColumna1" id="labelFiltro1">Segmento Principal</label>
+            <select id="filtroColumna1" class="bi-select-full">
+              <option value="">(Todos)</option>
+            </select>
+          </div>
+
+          <div class="bi-form-field">
+            <label for="filtroColumna2" id="labelFiltro2">Segmento Secundario</label>
+            <select id="filtroColumna2" class="bi-select-full">
+              <option value="">(Todos)</option>
+            </select>
+          </div>
+
+          <div class="bi-filter-actions">
+            <button id="btnAplicar" type="button" class="btn-bi-filter-apply">
+              ✓ Aplicar Filtros
+            </button>
+            <button id="btnResetFiltros" type="button" class="btn-bi-filter-reset">
+              ✕ Restablecer
+            </button>
+          </div>
         </div>
       </div>
     </aside>
+
   </div>
 
   <!-- TABLA DE DATOS DETALLADOS -->
   <section class="bi-card bi-table-card">
-    <div class="bi-card-head-simple"><span class="bi-section-icon">📋</span><div><h3>Explorador de Datos Tabulares</h3><span class="bi-subtitle">Búsqueda rápida, ordenamiento dinámico y paginación</span></div></div>
-    <div class="bi-table-wrapper"><table id="tablaBI" class="display responsive nowrap bi-custom-table" style="width:100%"></table></div>
+    <div class="bi-card-head-simple">
+      <span class="bi-section-icon">📋</span>
+      <div>
+        <h3>Explorador de Datos Tabulares</h3>
+        <span class="bi-subtitle">Búsqueda rápida, ordenamiento dinámico y paginación</span>
+      </div>
+    </div>
+
+    <div class="bi-table-wrapper">
+      <table id="tablaBI" class="display responsive nowrap bi-custom-table" style="width:100%"></table>
+    </div>
   </section>
 
 </div>
