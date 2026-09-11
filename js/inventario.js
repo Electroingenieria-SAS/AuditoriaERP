@@ -86,7 +86,9 @@
 
     if (!window.supabaseClient) return;
 
-    // 1.2 Cargar catálogo desde Supabase
+    // 1.2 Cargar catálogo desde Supabase.
+    // La tabla productiva inventario contiene el catálogo base:
+    // codigo, producto, ubicacion y stock. Los conteos viven en historial_conteos.
     try {
       const TAMANO_PAGINA = 1000;
       let desde = 0;
@@ -95,7 +97,7 @@
       while (true) {
         const { data, error } = await window.supabaseClient
           .from('inventario')
-          .select('codigo, producto, ubicacion, stock_sistema, conteo_fisico, diferencia, estado')
+          .select('codigo, producto, ubicacion, stock')
           .order('codigo')
           .range(desde, desde + TAMANO_PAGINA - 1);
 
@@ -198,7 +200,7 @@
       codigo: codigo,
       producto: producto || codigo,
       ubicacion: ubicacion,
-      stock_sistema: stockSistema,
+      stock: stockSistema,
       conteo_fisico: null,
       diferencia: null,
       estado: 'Pendiente',
@@ -254,9 +256,16 @@
               const LOTE = 200;
               for (let i = 0; i < filtrados.length; i += LOTE) {
                 const chunk = filtrados.slice(i, i + LOTE);
-                await window.supabaseClient
+                const chunkDb = chunk.map(item => ({
+                  codigo: item.codigo,
+                  producto: item.producto,
+                  ubicacion: item.ubicacion,
+                  stock: extraerStock(item)
+                }));
+                const { error: upsertError } = await window.supabaseClient
                   .from('inventario')
-                  .upsert(chunk, { onConflict: 'codigo' });
+                  .upsert(chunkDb, { onConflict: 'codigo' });
+                if (upsertError) throw upsertError;
               }
             } catch (dbErr) {
               console.warn('Aviso en subida a Supabase:', dbErr);
@@ -354,7 +363,7 @@
 
     const btnGuardar = $('guardarConteo');
     try {
-      guardandoConteoActivo = true;
+      guardandoOperacionActiva = true;
       if (btnGuardar) btnGuardar.disabled = true;
 
       const conteoFisico = Number(valorFisico);
@@ -395,25 +404,15 @@
       window.historialConteos = [entradaHistorial, ...window.historialConteos.filter(h => h.codigo !== itemActualizado.codigo)];
       localStorage.setItem('historial_conteos', JSON.stringify(window.historialConteos));
 
-      // 3. Persistir en Supabase
+      // 3. Persistir el conteo en su tabla dedicada. El catálogo inventario no almacena campos de conteo.
       if (window.supabaseClient) {
         try {
-          await window.supabaseClient
-            .from('inventario')
-            .update({
-              conteo_fisico: conteoFisico,
-              diferencia: diferencia,
-              estado: estado,
-              usuario: usuarioLog
-            })
-            .eq('codigo', itemActualizado.codigo);
-
-          // Insertar en la tabla compartida de historial
-          await window.supabaseClient
+          const { error: historialError } = await window.supabaseClient
             .from('historial_conteos')
             .insert([entradaHistorial]);
+          if (historialError) throw historialError;
         } catch (err) {
-          console.warn('Aviso guardando en BD:', err);
+          console.warn('Aviso guardando conteo en BD:', err);
         }
       }
 
@@ -467,21 +466,13 @@
       window.historialConteos = window.historialConteos.filter(h => h.codigo !== codigo);
       localStorage.setItem('historial_conteos', JSON.stringify(window.historialConteos));
 
-      // 3. Sincronizar en Supabase
+      // 3. Sincronizar únicamente la tabla de historial; inventario es catálogo base.
       if (window.supabaseClient) {
-        await window.supabaseClient
-          .from('inventario')
-          .update({
-            conteo_fisico: null,
-            diferencia: null,
-            estado: 'Pendiente'
-          })
-          .eq('codigo', codigo);
-
-        await window.supabaseClient
+        const { error } = await window.supabaseClient
           .from('historial_conteos')
           .delete()
           .eq('codigo', codigo);
+        if (error) throw error;
       }
 
       window.renderInventario();
